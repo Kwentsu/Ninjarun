@@ -1,0 +1,1908 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Math Adventure</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<style>
+  :root{
+    --bg:#f7efe3;
+    --ink:#2a2118;
+    --sun:#f5a524;
+    --sky-top:#bfe3ff;
+    --sky-bot:#ffd9a8;
+    --leaf:#5fa85a;
+    --leaf-dk:#3f7a3b;
+    --path:#e9c98b;
+    --coin:#ffcc33;
+    --good:#3fa34d;
+    --bad:#d14b4b;
+    --panel:#fffaf0;
+  }
+  html,body{margin:0;padding:0;height:100%;background:var(--bg);font-family:"Baloo 2","Fredoka",system-ui,-apple-system,sans-serif;color:var(--ink);overflow:hidden;-webkit-font-smoothing:antialiased}
+  #stage{position:fixed;inset:0}
+  canvas{display:block;width:100%;height:100%}
+
+  /* HUD */
+  .hud{position:fixed;top:16px;left:16px;right:16px;display:flex;justify-content:space-between;align-items:flex-start;pointer-events:none;z-index:3;gap:12px;flex-wrap:wrap}
+  .chip{background:var(--panel);border:3px solid var(--ink);border-radius:999px;padding:10px 18px;font-weight:800;font-size:20px;box-shadow:0 4px 0 var(--ink);display:flex;align-items:center;gap:10px}
+  .chip .dot{width:14px;height:14px;border-radius:50%}
+  .chip.level .dot{background:#8a6dff}
+  .chip.score .dot{background:var(--coin)}
+  .chip.streak .dot{background:#ff7a59}
+  .chip.lives{display:flex;gap:6px}
+  .heart{width:22px;height:22px;display:inline-block;background:
+    radial-gradient(circle at 30% 30%,#ff6a6a 0 40%,#d14b4b 41% 100%);
+    clip-path:path('M11 20 C 2 13, 2 5, 7 3 C 9 2, 11 4, 11 6 C 11 4, 13 2, 15 3 C 20 5, 20 13, 11 20 Z');
+    transform:translateY(-1px)}
+  .heart.gone{opacity:.2;filter:grayscale(1)}
+
+  /* Icon buttons */
+  .iconbtn{pointer-events:auto;background:var(--panel);border:3px solid var(--ink);border-radius:999px;width:46px;height:46px;display:inline-flex;align-items:center;justify-content:center;box-shadow:0 4px 0 var(--ink);cursor:pointer;padding:0;transition:transform .06s}
+  .iconbtn:active{transform:translateY(3px);box-shadow:0 1px 0 var(--ink)}
+  .iconbtn svg{width:24px;height:24px;stroke:var(--ink);fill:none;stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round}
+
+  /* Difficulty selector */
+  .diffbar{pointer-events:auto;display:flex;gap:0;background:var(--panel);border:3px solid var(--ink);border-radius:999px;box-shadow:0 4px 0 var(--ink);overflow:hidden}
+  .diffbar button{font-family:inherit;font-weight:800;font-size:14px;letter-spacing:.5px;padding:10px 14px;background:transparent;border:0;border-right:2px solid var(--ink);color:var(--ink);cursor:pointer;text-transform:uppercase}
+  .diffbar button:last-child{border-right:0}
+  .diffbar button.active{background:#8a6dff;color:#fff}
+
+  /* Settings panel */
+  .settings-panel{position:fixed;top:78px;right:16px;z-index:6;background:var(--panel);border:3px solid var(--ink);border-radius:22px;box-shadow:0 6px 0 var(--ink);padding:16px 18px;width:260px;pointer-events:auto;display:none}
+  .settings-panel.open{display:block}
+  .settings-panel h3{margin:0 0 4px;font-size:20px;letter-spacing:.5px}
+  .settings-panel .section-label{font-size:11px;letter-spacing:2px;font-weight:800;text-transform:uppercase;opacity:.55;margin:14px 0 8px}
+  .swatches{display:flex;gap:10px}
+  .swatch{flex:1;aspect-ratio:1;border-radius:14px;border:3px solid var(--ink);box-shadow:0 3px 0 var(--ink);cursor:pointer;position:relative}
+  .swatch.active::after{content:"✓";position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:900;font-size:22px;text-shadow:0 1px 0 rgba(0,0,0,.5)}
+  .swatch.red{background:#c83c3c}
+  .swatch.green{background:#3fa34d}
+  .swatch.blue{background:#2a6ec8}
+  .weapon-row{display:flex;gap:8px}
+  .weapon-row button{flex:1;padding:10px 6px;border-radius:14px;border:3px solid var(--ink);background:#fff;box-shadow:0 3px 0 var(--ink);font-family:inherit;font-weight:800;cursor:pointer;font-size:13px;letter-spacing:.5px;display:flex;flex-direction:column;align-items:center;gap:4px}
+  .weapon-row button.active{background:#8a6dff;color:#fff}
+  .weapon-row button svg{width:26px;height:26px}
+
+  .toprow{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+
+  /* Question card */
+  .question{
+    position:fixed;left:50%;bottom:24px;transform:translateX(-50%);
+    background:var(--panel);border:4px solid var(--ink);border-radius:28px;
+    padding:16px 22px 14px;box-shadow:0 6px 0 var(--ink);
+    width:min(640px,94vw);z-index:4;pointer-events:auto;
+  }
+  .question .label{font-size:12px;letter-spacing:2px;font-weight:800;text-transform:uppercase;opacity:.5;text-align:center;margin-bottom:4px}
+  .question .prompt{display:flex;align-items:center;justify-content:center;gap:4px;margin:4px 0 12px;line-height:1}
+  .question .prompt .eq{font-size:32px;font-weight:800;opacity:.5;margin:0 6px;align-self:center}
+  /* PCA: each "number" in the prompt is a digit (abstract, left) beside a frame (concrete, right) */
+  .pv-num{display:inline-flex;flex-direction:row;align-items:center;justify-content:center;gap:10px}
+  .pv-box{display:flex;align-items:center;justify-content:center;flex-shrink:0}
+  .pv-box svg{display:block;overflow:visible}
+  .pv-box--empty{min-width:48px;min-height:48px;border:2px dashed rgba(42,33,24,.25);border-radius:8px}
+  .pv-digit{font-size:34px;font-weight:800;letter-spacing:1px;line-height:1;min-width:1.2em;text-align:center;flex-shrink:0}
+
+  /* Give the prompt and answer rows enough vertical room for the cardboards */
+  .question .prompt{min-height:92px}
+  .answers button{min-height:76px}
+
+  /* Display modes — toggled on #qcard. */
+  #qcard.mode-number   .pv-box:not(.pv-box--empty){display:none}
+  #qcard.mode-cardboard .pv-digit{display:none}
+  #qcard.mode-cardboard .pv-num--unknown .pv-digit{display:inline-block} /* keep the "?" visible */
+  #qcard.mode-number    .pv-num--unknown .pv-box--empty{display:none}    /* hide empty box in number-only */
+  .answers{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+  .answers button{
+    font-family:inherit;font-weight:800;
+    padding:8px 8px;border-radius:18px;
+    background:#fff;border:3px solid var(--ink);color:var(--ink);
+    box-shadow:0 4px 0 var(--ink);cursor:pointer;transition:transform .06s,background .2s;
+    display:flex;flex-direction:row;align-items:center;justify-content:center;gap:8px;
+  }
+  .answers button .pv-box--answer{min-height:0}
+  .answers button .pv-digit{font-size:22px}
+  .answers button:hover{background:#fff7e3}
+  .answers button:active{transform:translateY(3px);box-shadow:0 1px 0 var(--ink)}
+  .answers button.correct{background:#c7efc9;border-color:var(--good);color:var(--good)}
+  .answers button.wrong{background:#ffd3d3;border-color:var(--bad);color:var(--bad)}
+  .answers button:disabled{cursor:default}
+
+  .hint{font-size:13px;text-align:center;margin-top:10px;opacity:.55;font-weight:600;letter-spacing:.5px}
+
+  /* Overlays */
+  .overlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(42,33,24,.45);z-index:10;backdrop-filter:blur(3px)}
+  .overlay .card{background:var(--panel);border:4px solid var(--ink);border-radius:28px;padding:28px 32px;box-shadow:0 8px 0 var(--ink);text-align:center;max-width:440px}
+  .overlay h1{font-size:42px;margin:0 0 6px;line-height:1}
+  .overlay p{margin:6px 0 16px;font-size:18px;font-weight:600}
+  .overlay button{font-family:inherit;font-weight:800;font-size:22px;padding:14px 28px;border-radius:18px;background:var(--sun);border:3px solid var(--ink);box-shadow:0 4px 0 var(--ink);cursor:pointer}
+  .overlay button:active{transform:translateY(3px);box-shadow:0 1px 0 var(--ink)}
+
+  /* Floating feedback */
+  .floater{position:fixed;left:50%;top:40%;transform:translate(-50%,-50%);font-size:72px;font-weight:900;pointer-events:none;z-index:8;opacity:0;text-shadow:0 4px 0 var(--ink)}
+  .floater.show{animation:pop 900ms ease-out forwards}
+  @keyframes pop{
+    0%{opacity:0;transform:translate(-50%,-20%) scale(.6)}
+    30%{opacity:1;transform:translate(-50%,-50%) scale(1.15)}
+    100%{opacity:0;transform:translate(-50%,-80%) scale(1)}
+  }
+
+  /* Level banner */
+  .banner{position:fixed;top:18%;left:50%;transform:translateX(-50%) translateY(-30px);
+    background:#8a6dff;color:#fff;border:4px solid var(--ink);border-radius:22px;
+    padding:14px 26px;font-weight:800;font-size:28px;box-shadow:0 6px 0 var(--ink);
+    opacity:0;pointer-events:none;z-index:5;transition:opacity .35s,transform .35s}
+  .banner.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+  @media (max-width:520px){
+    .question .prompt{font-size:36px}
+    .answers button{font-size:22px;padding:12px 0}
+    .chip{font-size:16px;padding:8px 14px}
+  }
+</style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div id="stage"></div>
+
+  <div class="hud">
+    <div class="toprow">
+      <div class="chip level"><span class="dot"></span>Nível <span id="lvl">1</span></div>
+      <div class="chip score"><span class="dot"></span><span id="score">0</span> goblins</div>
+      <div class="chip streak"><span class="dot"></span>Combo <span id="streak">0</span></div>
+      <div class="chip score" style="background:#2a6ec8;color:#fff"><span class="dot" style="background:#ffde3d"></span>Recorde: <span id="best">0</span></div>
+    </div>
+    <div class="toprow">
+      <div class="chip lives" id="lives">
+        <span class="heart"></span><span class="heart"></span><span class="heart"></span>
+      </div>
+      <button class="iconbtn" id="pauseBtn" title="Pausar" aria-label="Pausar">
+        <svg id="pauseIcon" viewBox="0 0 24 24"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>
+        <svg id="playIcon" viewBox="0 0 24 24" style="display:none"><polygon points="7,4 20,12 7,20" fill="currentColor" stroke="none"/></svg>
+      </button>
+      <button class="iconbtn" id="restartBtn" title="Reiniciar" aria-label="Reiniciar">
+        <svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7"/><polyline points="3 4 3 9 8 9"/></svg>
+      </button>
+      <button class="iconbtn" id="settingsBtn" title="Configurações" aria-label="Configurações">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <div class="banner" id="banner">Level 1 — Let's go!</div>
+  <div class="floater" id="floater"></div>
+
+  <div class="settings-panel" id="settingsPanel">
+    <h3>Configurações</h3>
+    <div class="section-label">Dificuldade</div>
+    <div class="weapon-row" id="diffbar">
+      <button data-diff="easy">Fácil</button>
+      <button data-diff="normal" class="active">Médio</button>
+      <button data-diff="hard">Difícil</button>
+    </div>
+    <div class="section-label">Cor da roupa</div>
+    <div class="swatches" id="colorSwatches">
+      <div class="swatch red" data-color="red" title="Vermelho"></div>
+      <div class="swatch green" data-color="green" title="Verde"></div>
+      <div class="swatch blue" data-color="blue" title="Azul"></div>
+    </div>
+    <div class="section-label">Arma</div>
+    <div class="weapon-row" id="weaponRow">
+      <button data-weapon="sword" class="active">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#2a2118" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 17.5 3 6V3h3l11.5 11.5"/><path d="m13 19 6-6"/><path d="m16 16 4 4"/><path d="m19 21 2-2"/></svg>
+        Katana
+      </button>
+      <button data-weapon="axe">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#2a2118" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 12 3 3"/><path d="M21 8c-3-3-8-3-11 0l3 3c3-3 8-3 11 0"/><path d="M9 16 4 21"/></svg>
+        Machado
+      </button>
+      <button data-weapon="hammer">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#2a2118" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="6" rx="1"/><path d="M10 10v12"/><path d="M14 10v12"/></svg>
+        Martelo
+      </button>
+    </div>
+    <div class="section-label">Intervalo de contas</div>
+    <div class="weapon-row" id="rangeRow">
+      <button data-range="10" class="active">Até 10</button>
+      <button data-range="20">Até 20</button>
+      <button data-range="100">Até 100</button>
+    </div>
+    <div class="section-label">Exibição dos números</div>
+    <div class="weapon-row" id="displayRow">
+      <button data-display="number">Número</button>
+      <button data-display="cardboard">Cardboard</button>
+      <button data-display="both" class="active">Ambos</button>
+    </div>
+    <div class="section-label">Música</div>
+    <div class="weapon-row" id="musicRow">
+      <button data-music="on" class="active">🎵 Ligada</button>
+      <button data-music="off">🔇 Desligada</button>
+    </div>
+    <div class="section-label">Cenário</div>
+    <div class="weapon-row" id="sceneRow">
+      <button data-scene="forest" class="active">
+        <svg viewBox="0 0 24 24" fill="#5fa85a" stroke="#2a2118" stroke-width="1.5" stroke-linejoin="round"><polygon points="12,3 5,14 9,14 6,20 18,20 15,14 19,14"/></svg>
+        Floresta
+      </button>
+      <button data-scene="snow">
+        <svg viewBox="0 0 24 24" fill="#e8f3ff" stroke="#2a2118" stroke-width="1.5" stroke-linejoin="round"><polygon points="12,3 3,20 21,20"/><polygon points="12,3 7,12 17,12" fill="#fff"/></svg>
+        Neve
+      </button>
+      <button data-scene="cave">
+        <svg viewBox="0 0 24 24" fill="#6b5a4a" stroke="#2a2118" stroke-width="1.5" stroke-linejoin="round"><path d="M3 20V12a9 9 0 0 1 18 0v8z"/><path d="M8 20v-4a4 4 0 0 1 8 0v4" fill="#2a2118"/></svg>
+        Caverna
+      </button>
+    </div>
+  </div>
+
+  <div class="question" id="qcard">
+    <div class="label">Derrote o goblin da resposta certa!</div>
+    <div class="prompt" id="prompt">2 <span class="eq">+</span> 3 <span class="eq">=</span> ?</div>
+    <div class="answers" id="answers"></div>
+    <div class="hint">Escolha a resposta correta para atacar o goblin certo ⚔️ Mantenha o combo!</div>
+  </div>
+
+  <div class="overlay" id="overlay" style="display:none">
+    <div class="card">
+      <h1 id="ovTitle">Ready?</h1>
+      <p id="ovText">Solve the math problem to pass each gate. Get 3 wrong and the adventure ends!</p>
+      <button id="ovBtn">Start Adventure</button>
+    </div>
+  </div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+
+/* =========================================================
+   MATH ADVENTURE — a continuous runner on a winding path.
+   Aesthetic: warm storybook, flat-shaded low-poly, chunky.
+   ========================================================= */
+
+const stage = document.getElementById('stage');
+const scene = new THREE.Scene();
+scene.background = null;
+
+const renderer = new THREE.WebGLRenderer({antialias:true, alpha:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+stage.appendChild(renderer.domElement);
+
+// Sky gradient via CSS body background. Also add a sky dome.
+const skyGeo = new THREE.SphereGeometry(300, 32, 16);
+const skyMat = new THREE.ShaderMaterial({
+  side: THREE.BackSide,
+  uniforms:{
+    top:{value:new THREE.Color('#bfe3ff')},
+    bot:{value:new THREE.Color('#ffd9a8')}
+  },
+  vertexShader:`varying vec3 vPos; void main(){ vPos = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.); }`,
+  fragmentShader:`varying vec3 vPos; uniform vec3 top; uniform vec3 bot;
+     void main(){ float t = clamp((vPos.y+120.)/240., 0., 1.); gl_FragColor = vec4(mix(bot, top, t), 1.); }`
+});
+scene.add(new THREE.Mesh(skyGeo, skyMat));
+
+// Camera
+const camera = new THREE.PerspectiveCamera(55, 1, 0.1, 500);
+camera.position.set(0, 6, 10);
+
+// Lights
+const sun = new THREE.DirectionalLight(0xfff1d0, 1.25);
+sun.position.set(10, 18, 8);
+sun.castShadow = true;
+sun.shadow.mapSize.set(1024,1024);
+sun.shadow.camera.left=-30; sun.shadow.camera.right=30;
+sun.shadow.camera.top=30; sun.shadow.camera.bottom=-30;
+scene.add(sun);
+scene.add(new THREE.HemisphereLight(0xbfe3ff, 0xf5d9a0, 0.55));
+
+// Ground (rolling hills)
+const groundMat = new THREE.MeshStandardMaterial({color:'#86c972', roughness:1, metalness:0, flatShading:true});
+const groundGeo = new THREE.PlaneGeometry(400, 400, 80, 80);
+const pos = groundGeo.attributes.position;
+for(let i=0;i<pos.count;i++){
+  const x = pos.getX(i), y = pos.getY(i);
+  const d = Math.sqrt(x*x + y*y);
+  // leave a flat corridor down the middle
+  const corridor = Math.max(0, 1 - Math.exp(-Math.pow(x/5,2)));
+  const h = corridor * (Math.sin(x*0.12)*0.6 + Math.cos(y*0.09)*0.8 + Math.sin((x+y)*0.07)*0.4);
+  pos.setZ(i, h);
+}
+groundGeo.computeVertexNormals();
+const ground = new THREE.Mesh(groundGeo, groundMat);
+ground.rotation.x = -Math.PI/2;
+ground.receiveShadow = true;
+scene.add(ground);
+
+// Path (a lighter strip)
+const pathMat = new THREE.MeshStandardMaterial({color:'#e9c98b', roughness:1, flatShading:true});
+const pathGeo = new THREE.PlaneGeometry(3.6, 400);
+const path = new THREE.Mesh(pathGeo, pathMat);
+path.rotation.x = -Math.PI/2;
+path.position.y = 0.02;
+path.receiveShadow = true;
+scene.add(path);
+
+// Stripe markers on the path
+const stripeMat = new THREE.MeshStandardMaterial({color:'#fff7e3', roughness:1});
+const stripes = new THREE.Group();
+scene.add(stripes);
+function refreshStripes(playerZ){
+  // recycle stripes relative to player z
+  stripes.children.forEach((s,i)=>{
+    const spacing = 4;
+    const base = Math.floor(playerZ / spacing) * spacing;
+    s.position.z = base - (i*spacing) - 2;
+  });
+}
+for(let i=0;i<40;i++){
+  const g = new THREE.PlaneGeometry(0.5, 0.2);
+  const m = new THREE.Mesh(g, stripeMat);
+  m.rotation.x = -Math.PI/2;
+  m.position.y = 0.03;
+  stripes.add(m);
+}
+
+/* ------- Trees, rocks, clouds (reusable) ------- */
+function makeTree(){
+  const g = new THREE.Group();
+  const trunkMat = new THREE.MeshStandardMaterial({color:'#8a5a2b', flatShading:true, roughness:1});
+  const leafMat  = new THREE.MeshStandardMaterial({color:'#5fa85a', flatShading:true, roughness:1});
+  const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.25,0.3,1.2,6), trunkMat);
+  trunk.position.y = 0.6;
+  trunk.castShadow = true;
+  g.add(trunk);
+  const pal = ['#5fa85a','#72b962','#3f7a3b','#8fc76f'];
+  for(let i=0;i<3;i++){
+    const s = 0.9 - i*0.15;
+    const cone = new THREE.Mesh(new THREE.ConeGeometry(s, 1.1, 7),
+      new THREE.MeshStandardMaterial({color:pal[i%pal.length], flatShading:true, roughness:1}));
+    cone.position.y = 1.2 + i*0.55;
+    cone.castShadow = true;
+    g.add(cone);
+  }
+  return g;
+}
+function makeRock(){
+  const g = new THREE.Group();
+  const m = new THREE.MeshStandardMaterial({color:'#b7b0a3', flatShading:true, roughness:1});
+  const r = new THREE.Mesh(new THREE.DodecahedronGeometry(0.5+Math.random()*0.4), m);
+  r.castShadow = true;
+  r.rotation.set(Math.random(),Math.random(),Math.random());
+  g.add(r);
+  return g;
+}
+function makeCloud(){
+  const g = new THREE.Group();
+  const m = new THREE.MeshStandardMaterial({color:'#ffffff', flatShading:true, roughness:1});
+  for(let i=0;i<4;i++){
+    const s = 0.8 + Math.random()*0.6;
+    const mesh = new THREE.Mesh(new THREE.IcosahedronGeometry(s, 0), m);
+    mesh.position.set(i*0.9 - 1.2, Math.random()*0.3, Math.random()*0.4);
+    g.add(mesh);
+  }
+  return g;
+}
+
+// Populate scenery along both sides, z range ~ [-200, 20]. We'll recycle.
+const scenery = [];
+function spawnSceneryPiece(z){
+  const side = Math.random()<.5 ? -1 : 1;
+  const x = side * (3 + Math.random()*10);
+  let item;
+  const r = Math.random();
+  if(r<0.7) item = makeTree();
+  else if(r<0.9) item = makeRock();
+  else {
+    item = makeCloud();
+    item.position.y = 8 + Math.random()*4;
+  }
+  item.position.x = x;
+  item.position.z = z;
+  if(!(item.position.y)) item.position.y = 0;
+  scene.add(item);
+  scenery.push(item);
+}
+for(let z=10; z>-220; z-=2.2){
+  spawnSceneryPiece(z + Math.random()*1.5);
+}
+
+/* ---------------- Player: low-poly NINJA ---------------- */
+const player = new THREE.Group();
+const skinMat  = new THREE.MeshStandardMaterial({color:'#f1c18b', flatShading:true, roughness:1});
+const tunicMat = new THREE.MeshStandardMaterial({color:'#c83c3c', flatShading:true, roughness:1}); // ninja gi color
+const beltMat  = new THREE.MeshStandardMaterial({color:'#2a2118', flatShading:true, roughness:1});
+const bootMat  = new THREE.MeshStandardMaterial({color:'#2a2118', flatShading:true, roughness:1});
+const steelMat = new THREE.MeshStandardMaterial({color:'#d8dee8', flatShading:true, roughness:.4, metalness:.6});
+const goldMat  = new THREE.MeshStandardMaterial({color:'#e8b84a', flatShading:true, roughness:.5, metalness:.5});
+const darkMat  = new THREE.MeshStandardMaterial({color:'#2a2118'});
+
+// Legs (dark tabi boots)
+const legL = new THREE.Mesh(new THREE.BoxGeometry(0.22,0.55,0.22), bootMat);
+legL.position.set(-0.16,0.3,0); legL.castShadow=true; player.add(legL);
+const legR = legL.clone(); legR.position.x = 0.16; player.add(legR);
+
+// Torso (gi)
+const torso = new THREE.Mesh(new THREE.BoxGeometry(0.7,0.7,0.45), tunicMat);
+torso.position.y = 0.95; torso.castShadow=true; player.add(torso);
+// V-neck wrap (gi crossover)
+const wrap = new THREE.Mesh(new THREE.BoxGeometry(0.72,0.35,0.46), darkMat);
+wrap.position.set(0, 1.08, 0.005); player.add(wrap);
+// belt (sash)
+const belt = new THREE.Mesh(new THREE.BoxGeometry(0.74,0.12,0.48), beltMat);
+belt.position.y = 0.65; player.add(belt);
+// belt knot
+const knot = new THREE.Mesh(new THREE.BoxGeometry(0.16,0.14,0.08), beltMat);
+knot.position.set(0,0.66,0.28); player.add(knot);
+
+// Arms
+const armL = new THREE.Mesh(new THREE.BoxGeometry(0.18,0.55,0.22), tunicMat);
+armL.position.set(-0.44,0.95,0); armL.castShadow=true; player.add(armL);
+const armR = armL.clone(); armR.position.x = 0.44; player.add(armR);
+// forearms / wrist wraps
+const wristL = new THREE.Mesh(new THREE.BoxGeometry(0.2,0.12,0.24), darkMat);
+wristL.position.set(-0.44,0.68,0); player.add(wristL);
+const wristR = wristL.clone(); wristR.position.x = 0.44; player.add(wristR);
+
+// Head (hooded)
+const head = new THREE.Mesh(new THREE.BoxGeometry(0.55,0.55,0.5), skinMat);
+head.position.y = 1.58; head.castShadow=true; player.add(head);
+// Hood (covers top + back + sides)
+const hood = new THREE.Mesh(new THREE.BoxGeometry(0.62,0.4,0.58), tunicMat);
+hood.position.y = 1.78; player.add(hood);
+const hoodBack = new THREE.Mesh(new THREE.BoxGeometry(0.62,0.55,0.18), tunicMat);
+hoodBack.position.set(0,1.6,-0.22); player.add(hoodBack);
+// Mask (covers mouth/nose, leaves eye strip)
+const maskLower = new THREE.Mesh(new THREE.BoxGeometry(0.56,0.22,0.52), darkMat);
+maskLower.position.set(0, 1.46, 0.005); player.add(maskLower);
+const maskUpper = new THREE.Mesh(new THREE.BoxGeometry(0.56,0.12,0.52), darkMat);
+maskUpper.position.set(0, 1.78, 0.005); player.add(maskUpper);
+// Forehead band (colored)
+const band = new THREE.Mesh(new THREE.BoxGeometry(0.58,0.08,0.54), tunicMat);
+band.position.y = 1.72; player.add(band);
+// Eyes
+for(const sx of [-1,1]){
+  const eye = new THREE.Mesh(new THREE.BoxGeometry(0.09,0.07,0.02), goldMat);
+  eye.position.set(0.13*sx, 1.62, 0.26); player.add(eye);
+}
+// Headband tails (flowing behind)
+const tail1 = new THREE.Mesh(new THREE.BoxGeometry(0.1,0.55,0.05), tunicMat);
+tail1.position.set(-0.15, 1.55, -0.33); tail1.rotation.x = 0.3; player.add(tail1);
+const tail2 = tail1.clone(); tail2.position.x = 0.15; player.add(tail2);
+
+// Weapon slot (built by buildWeapon based on player.userData.weapon)
+const weaponSlot = new THREE.Group();
+weaponSlot.position.set(0.55, 1.0, 0.1);
+player.add(weaponSlot);
+player.userData.weaponSlot = weaponSlot;
+player.userData.weapon = 'sword';
+
+function clearGroup(g){ while(g.children.length) g.remove(g.children[0]); }
+
+function buildWeapon(kind){
+  clearGroup(weaponSlot);
+  weaponSlot.rotation.set(0,0,-0.3);
+  if(kind === 'sword'){
+    // KATANA — one continuous curved blade, aligned to the handle axis.
+    const katanaSteel = new THREE.MeshStandardMaterial({color:'#dfe4ec', roughness:.25, metalness:.85});
+    const wrapMat     = new THREE.MeshStandardMaterial({color:'#141820', roughness:.9});
+
+    // Blade shape in its OWN local frame:
+    //   x = distance along the blade (0 = base, L = tip)
+    //   y = across the blade  (handle axis passes through y = 0; blade extends upward on +y)
+    // We center the blade on y=0 so it sits dead-center on the handle.
+    const L = 1.05;             // blade length
+    const halfW = 0.038;        // half-thickness of blade across
+    const CURVE = 0.05;         // gentle sori
+    const shape = new THREE.Shape();
+    // Start at the base, edge (ha) side (bottom)
+    shape.moveTo(0, -halfW);
+    // Edge (ha) — slight upward curve toward the tip
+    const N = 20;
+    for(let i=1; i<=N; i++){
+      const t = i/N;
+      const x = t * L;
+      const y = -halfW - Math.sin(t*Math.PI) * CURVE * 0.18;
+      shape.lineTo(x,y);
+    }
+    // Kissaki: sharp tip (single diagonal up to the back)
+    shape.lineTo(L + 0.04, 0);
+    // Back (mune) — arched back to the base
+    for(let i=N; i>=1; i--){
+      const t = i/N;
+      const x = t * L;
+      const y = halfW + Math.sin(t*Math.PI) * CURVE;
+      shape.lineTo(x,y);
+    }
+    shape.lineTo(0, halfW);
+    shape.lineTo(0, -halfW);
+
+    const blade = new THREE.Mesh(
+      new THREE.ExtrudeGeometry(shape, {depth:0.022, bevelEnabled:true, bevelSize:0.004, bevelThickness:0.004, bevelSegments:1, steps:1}),
+      katanaSteel
+    );
+    blade.castShadow = true;
+    // Orient: blade's local +x should point up from the guard.
+    // Rotate +x → +y (around Z by +90°). Then shift up so x=0 of the shape sits at the top of the tsuba.
+    blade.rotation.z = Math.PI/2;
+    blade.position.set(0, 0.07, -0.011); // centered on handle axis, depth-centered
+    weaponSlot.add(blade);
+
+    // --- Habaki (metal collar) ---
+    const habaki = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.06, 12), goldMat);
+    habaki.position.y = 0.08;
+    weaponSlot.add(habaki);
+
+    // --- Tsuba (round guard) ---
+    const tsuba = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.14, 0.03, 24), goldMat);
+    tsuba.rotation.x = Math.PI/2;
+    tsuba.position.y = 0.045;
+    weaponSlot.add(tsuba);
+
+    // --- Tsuka (handle) ---
+    const tsuka = new THREE.Mesh(new THREE.CylinderGeometry(0.046, 0.038, 0.34, 12), wrapMat);
+    tsuka.position.y = -0.13;
+    weaponSlot.add(tsuka);
+    // Ito wrap bands
+    for(let i=0;i<6;i++){
+      const band = new THREE.Mesh(new THREE.BoxGeometry(0.105, 0.012, 0.05), goldMat);
+      band.position.y = -0.29 + i*0.055;
+      band.rotation.z = (i%2 ? 0.35 : -0.35);
+      weaponSlot.add(band);
+    }
+
+    // --- Kashira (pommel cap) ---
+    const kashira = new THREE.Mesh(new THREE.CylinderGeometry(0.052, 0.048, 0.045, 12), goldMat);
+    kashira.position.y = -0.32;
+    weaponSlot.add(kashira);
+  } else if(kind === 'axe'){
+    // DOUBLE-BIT AXE — extruded butterfly head (two curved bits sharing an eye),
+    // mounted on a long wrapped haft. Both bits symmetric across the haft axis.
+    const axeSteel = new THREE.MeshStandardMaterial({color:'#c8d0da', flatShading:true, roughness:.35, metalness:.7});
+    const hafWood  = new THREE.MeshStandardMaterial({color:'#5a3a20', flatShading:true, roughness:1});
+    const hafDark  = new THREE.MeshStandardMaterial({color:'#1a1410', flatShading:true, roughness:1});
+
+    // Haft
+    const haftLen = 1.05;
+    const haft = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.055, haftLen, 12), hafWood);
+    haft.position.y = haftLen/2 - 0.28;
+    haft.castShadow = true;
+    weaponSlot.add(haft);
+    const grip = new THREE.Mesh(new THREE.CylinderGeometry(0.062, 0.062, 0.22, 12), hafDark);
+    grip.position.y = -0.2;
+    weaponSlot.add(grip);
+    for(let i=0;i<3;i++){
+      const band = new THREE.Mesh(new THREE.CylinderGeometry(0.066, 0.066, 0.015, 12), goldMat);
+      band.position.y = -0.28 + i*0.08;
+      weaponSlot.add(band);
+    }
+    const pommel = new THREE.Mesh(new THREE.CylinderGeometry(0.058, 0.048, 0.05, 12), goldMat);
+    pommel.position.y = -0.34;
+    weaponSlot.add(pommel);
+
+    // Double-bit head shape — symmetric butterfly. The haft passes THROUGH the center.
+    // In the shape's local XY: x = horizontal, y = vertical (along haft).
+    // We build a closed polygon going counter-clockwise.
+    const W = 0.95;  // tip-to-tip (both bits combined)
+    const H = 0.48;  // head thickness along haft
+    const C = 0.08;  // belly curve amount
+    const N = 0.18;  // half-width of the narrow waist at the haft (center)
+    const headShape = new THREE.Shape();
+    // Start at top-left corner of the narrow waist
+    headShape.moveTo(-N, H/2);
+    // Top edge of LEFT bit (curves outward up then down to the left tip)
+    headShape.bezierCurveTo(-W/2 + 0.2, H/2 + 0.03, -W/2 + 0.05, H*0.25, -W/2, H*0.15);
+    // Left cutting edge (bezier belly out to the left, from upper tip to lower tip)
+    headShape.bezierCurveTo(-W/2 - C, H*0.05, -W/2 - C, -H*0.05, -W/2, -H*0.15);
+    // Bottom edge of LEFT bit (back to narrow waist bottom-left)
+    headShape.bezierCurveTo(-W/2 + 0.05, -H*0.25, -W/2 + 0.2, -H/2 - 0.03, -N, -H/2);
+    // Bottom of the waist across to bottom of RIGHT waist
+    headShape.lineTo(N, -H/2);
+    // Bottom edge of RIGHT bit (out to lower right tip)
+    headShape.bezierCurveTo(W/2 - 0.2, -H/2 - 0.03, W/2 - 0.05, -H*0.25, W/2, -H*0.15);
+    // Right cutting edge (bezier belly out to the right, lower tip → upper tip)
+    headShape.bezierCurveTo(W/2 + C, -H*0.05, W/2 + C, H*0.05, W/2, H*0.15);
+    // Top edge of RIGHT bit (back to narrow waist top-right)
+    headShape.bezierCurveTo(W/2 - 0.05, H*0.25, W/2 - 0.2, H/2 + 0.03, N, H/2);
+    // Close across the top waist
+    headShape.lineTo(-N, H/2);
+
+    const headGeo = new THREE.ExtrudeGeometry(headShape, {
+      depth: 0.12, bevelEnabled: true, bevelSize: 0.018, bevelThickness: 0.012, bevelSegments: 2, steps: 1,
+    });
+    const head = new THREE.Mesh(headGeo, axeSteel);
+    head.castShadow = true;
+    // Orient: shape is in XY plane, extrude along +Z. We want the head PERPENDICULAR to the haft
+    // (haft runs along Y). So we rotate around Y so the extrude direction (Z) aligns with world X (across-handle).
+    // Actually the default is fine — the head is in XY plane, meaning it already sits flat across the haft.
+    // Just center it on the haft axis (shape x=0 is already on the haft) and lift to the top.
+    head.position.set(0, haftLen - 0.3, -0.06); // top of haft, centered in depth
+    weaponSlot.add(head);
+
+    // Eye reinforcement — a small dark wedge where the haft meets the head
+    const eye = new THREE.Mesh(new THREE.BoxGeometry(0.17, 0.12, 0.14), hafDark);
+    eye.position.set(0, haftLen - 0.3, 0);
+    weaponSlot.add(eye);
+    // Gold collar bands on haft at the eye
+    for(const dy of [-0.08, 0.08]){
+      const b = new THREE.Mesh(new THREE.CylinderGeometry(0.072, 0.072, 0.022, 12), goldMat);
+      b.position.y = haftLen - 0.3 + dy;
+      weaponSlot.add(b);
+    }
+  } else if(kind === 'hammer'){
+    // Haft
+    const haft = new THREE.Mesh(new THREE.CylinderGeometry(0.06,0.06,1.0,8), beltMat);
+    haft.position.y = 0.35; weaponSlot.add(haft);
+    const wrap = new THREE.Mesh(new THREE.CylinderGeometry(0.08,0.08,0.2,8), darkMat);
+    wrap.position.y = -0.05; weaponSlot.add(wrap);
+    // Big chunky head
+    const block = new THREE.Mesh(new THREE.BoxGeometry(0.55,0.42,0.42), steelMat);
+    block.position.y = 0.9; weaponSlot.add(block);
+    // Gold rings on head
+    const ring1 = new THREE.Mesh(new THREE.BoxGeometry(0.07,0.46,0.46), goldMat);
+    ring1.position.set(-0.24, 0.9, 0); weaponSlot.add(ring1);
+    const ring2 = ring1.clone(); ring2.position.x = 0.24; weaponSlot.add(ring2);
+    // Spike top
+    const spike = new THREE.Mesh(new THREE.ConeGeometry(0.07,0.16,4), goldMat);
+    spike.position.y = 1.18; weaponSlot.add(spike);
+  }
+}
+buildWeapon('sword');
+player.userData.sword = weaponSlot; // reuse animation hook name
+
+player.position.set(0, 0, 0);
+scene.add(player);
+
+// Soft shadow disc
+const shadowDisc = new THREE.Mesh(
+  new THREE.CircleGeometry(0.7, 24),
+  new THREE.MeshBasicMaterial({color:0x000000, transparent:true, opacity:0.22})
+);
+shadowDisc.rotation.x = -Math.PI/2;
+shadowDisc.position.y = 0.04;
+scene.add(shadowDisc);
+
+/* ---------------- Gates with numbers on them ---------------- */
+// A gate: two posts + a banner with a number. Up to 4 gates visible at a time.
+const GATE_COUNT = 4;
+const GATE_SPACING = 22; // world units between gates (more breathing room)
+const gates = [];
+const postMat = new THREE.MeshStandardMaterial({color:'#8a5a2b', flatShading:true});
+const bannerMatBase = () => new THREE.MeshStandardMaterial({color:'#fffaf0', flatShading:true});
+
+function makeNumberTexture(num, color='#2a2118', bg='#fffaf0'){
+  const c = document.createElement('canvas');
+  c.width = 256; c.height = 256;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = bg; ctx.fillRect(0,0,256,256);
+  ctx.fillStyle = color;
+  ctx.font = 'bold 180px "Baloo 2", system-ui, sans-serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(String(num), 128, 140);
+  const tex = new THREE.CanvasTexture(c);
+  tex.anisotropy = 4;
+  return tex;
+}
+
+function makeGate(){
+  const g = new THREE.Group();
+  // outer decorative posts removed — the inner torii lanes provide the full silhouette
+  g.userData = {value:0, pass:false};
+  return g;
+}
+
+for(let i=0;i<GATE_COUNT;i++){
+  const g = makeGate();
+  scene.add(g);
+  gates.push(g);
+}
+
+/* ---------------- Mini goblins guarding each gate lane ---------------- */
+const goblinSkin = new THREE.MeshStandardMaterial({color:'#6aa35a', flatShading:true, roughness:1});
+const goblinCloth = new THREE.MeshStandardMaterial({color:'#7a5a2b', flatShading:true, roughness:1});
+const goblinEye = new THREE.MeshStandardMaterial({color:'#ffde3d', emissive:'#886500'});
+const goblinTooth = new THREE.MeshStandardMaterial({color:'#fff7e3'});
+function makeGoblin(){
+  const g = new THREE.Group();
+  // body
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.5,0.5,0.4), goblinCloth);
+  body.position.y = 0.35; body.castShadow=true; g.add(body);
+  // head
+  const head = new THREE.Mesh(new THREE.BoxGeometry(0.6,0.5,0.5), goblinSkin);
+  head.position.y = 0.9; head.castShadow=true; g.add(head);
+  // ears (pointy)
+  for(const sx of [-1,1]){
+    const ear = new THREE.Mesh(new THREE.ConeGeometry(0.12,0.3,4), goblinSkin);
+    ear.position.set(0.35*sx, 1.05, 0); ear.rotation.z = sx*0.9; g.add(ear);
+  }
+  // eyes
+  for(const sx of [-1,1]){
+    const eye = new THREE.Mesh(new THREE.BoxGeometry(0.09,0.09,0.02), goblinEye);
+    eye.position.set(0.12*sx, 0.95, 0.26); g.add(eye);
+  }
+  // tooth
+  const tooth = new THREE.Mesh(new THREE.ConeGeometry(0.04,0.1,3), goblinTooth);
+  tooth.rotation.x = Math.PI; tooth.position.set(0.05,0.78,0.26); g.add(tooth);
+  // arms
+  for(const sx of [-1,1]){
+    const arm = new THREE.Mesh(new THREE.BoxGeometry(0.14,0.4,0.14), goblinSkin);
+    arm.position.set(0.32*sx, 0.45, 0); arm.castShadow=true; g.add(arm);
+  }
+  // feet
+  for(const sx of [-1,1]){
+    const foot = new THREE.Mesh(new THREE.BoxGeometry(0.16,0.12,0.22), darkMat);
+    foot.position.set(0.14*sx, 0.06, 0.04); g.add(foot);
+  }
+  // little club in right hand
+  const club = new THREE.Mesh(new THREE.BoxGeometry(0.08,0.35,0.08), goblinCloth);
+  club.position.set(0.38, 0.62, 0.05); club.rotation.z = -0.4; g.add(club);
+  return g;
+}
+
+/* ---------------- Game state ---------------- */
+const state = {
+  running: false,
+  paused: true,
+  speed: 6,        // world units per second (grows with level)
+  baseSpeed: 6,
+  level: 1,
+  score: 0,
+  streak: 0,
+  lives: 3,
+  distance: 0,     // how far along +z the player has gone
+  currentGateZ: null,
+  answered: false, // answered the current question?
+  correctAnswer: 0,
+  problemAhead: null, // the gate we are currently answering for
+  lane: 0,             // -1, 0, 1 — lane target by chosen answer
+  laneX: 0,            // smoothed x
+  dirHue: 0,           // for little FX
+  numberRange: 10,     // user-selectable cap (10/20/100) via Configurações
+};
+
+/* ---------------- DOM bits ---------------- */
+const $ = id => document.getElementById(id);
+const promptEl = $('prompt'), answersEl = $('answers');
+const lvlEl=$('lvl'), scoreEl=$('score'), streakEl=$('streak'), livesEl=$('lives');
+const bannerEl=$('banner'), floaterEl=$('floater');
+const overlay=$('overlay'), ovTitle=$('ovTitle'), ovText=$('ovText'), ovBtn=$('ovBtn');
+
+function renderLives(){
+  livesEl.innerHTML='';
+  for(let i=0;i<3;i++){
+    const h = document.createElement('span');
+    h.className = 'heart' + (i<state.lives?'':' gone');
+    livesEl.appendChild(h);
+  }
+}
+renderLives();
+
+function flash(text, cls){
+  floaterEl.textContent = text;
+  floaterEl.style.color = cls==='good' ? 'var(--good)' : cls==='bad' ? 'var(--bad)' : '#8a6dff';
+  floaterEl.classList.remove('show'); void floaterEl.offsetWidth; floaterEl.classList.add('show');
+}
+function showBanner(text){
+  bannerEl.textContent = text;
+  bannerEl.classList.add('show');
+  setTimeout(()=>bannerEl.classList.remove('show'), 1400);
+}
+
+/* ---------------- Problem generation ---------------- */
+function levelDifficulty(L){
+  // User can override the max via Settings → "Intervalo de contas".
+  // If set, we still scale subtly with level (to gradually push toward the cap)
+  // but never exceed the chosen ceiling.
+  const cap = state.numberRange || 10;
+  // Level scaling inside the cap: start easier, reach the cap by level 5.
+  const ratio = Math.min(1, 0.6 + L*0.1);
+  const max = Math.max(5, Math.round(cap * ratio));
+  // For higher caps, start allowing a bit of variety; keep +/- only for simplicity.
+  return {max, ops:['+','-']};
+}
+function makeProblem(){
+  const d = levelDifficulty(state.level);
+  const op = d.ops[Math.floor(Math.random()*d.ops.length)];
+  let a, b, ans;
+  if(op==='+'){
+    a = 1 + Math.floor(Math.random()* (d.max-1));
+    b = 1 + Math.floor(Math.random()* (d.max - a));
+    ans = a + b;
+  } else {
+    a = 2 + Math.floor(Math.random()* (d.max-1));
+    b = 1 + Math.floor(Math.random()* (a-1));
+    ans = a - b;
+  }
+  // 4 choices including answer. Distractor spread scales with the cap so
+  // at "até 100" we don't spam answers like ans, ans+1, ans-1 — too easy.
+  const spread = Math.max(3, Math.floor(d.max * 0.25));
+  const choices = new Set([ans]);
+  let attempts = 0;
+  while(choices.size < 4 && attempts++ < 40){
+    const off = (Math.floor(Math.random()*(spread*2+1)) - spread) || 1;
+    const c = Math.max(0, ans + off);
+    if(c!==ans) choices.add(c);
+  }
+  const arr = [...choices];
+  // shuffle
+  for(let i=arr.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [arr[i],arr[j]]=[arr[j],arr[i]]; }
+  return {a,b,op,ans, choices:arr};
+}
+
+let currentProblem = null;
+
+/* ---------------- PCA: Place-value visual for a number ----------------
+   PCA = Pitoresco / Concreto / Abstrato.  The digit is the abstract
+   representation; this function renders the concrete quantity as circles
+   arranged in ten-frames:
+     • n ≤ 10  → one ten-frame (2×5 grid) with n dots filled
+     • n ≤ 99  → ⌊n/10⌋ filled ten-frames (as tall columns of 10) for the
+                 tens, plus a partial ten-frame for the units
+     • n ≥ 100 → a 10×10 hundred-flat + any extra tens/units
+   Returns an SVG string sized to fit the calling slot. Dot size + column
+   gap adapt to the magnitude so the whole thing fits in a fixed box. */
+function placeValueSVG(n, opts={}){
+  n = Math.max(0, Math.min(999, n|0));
+  const {size='prompt'} = opts;
+  const tens  = Math.floor(n/10);
+  const units = n%10;
+
+  const cfg = size==='answer'
+    ? {dot:7,  gap:2.2, blockGap:5, stroke:0, maxW:86,  maxH:60}
+    : {dot:9,  gap:2.8, blockGap:7, stroke:0, maxW:130, maxH:82};
+
+  const blockW = cfg.dot*2 + cfg.gap;
+  const blockH = cfg.dot*5 + cfg.gap*4;
+
+  // Build list of cards
+  const cards = [];
+  for(let i=0;i<tens;i++) cards.push(10);
+  if(units>0 || tens===0) cards.push(units);
+  const totalCards = cards.length;
+
+  // Flow: up to PER_ROW cards per row, wrap for the rest.
+  // Use a smaller per-row count so answer cells stay compact.
+  const PER_ROW = totalCards<=5 ? totalCards : 5;
+  const rowsNeeded = Math.ceil(totalCards / PER_ROW);
+  const lastRowCount = totalCards - PER_ROW*(rowsNeeded-1);
+
+  // Grid dimensions: width is the WIDER of (full row) or (last row), which is always PER_ROW (if >=1 row full)
+  // BUT when totalCards<PER_ROW we collapse width to exactly totalCards blocks — no dead space.
+  const cardsWide = Math.min(totalCards, PER_ROW);
+  const gridW = cardsWide*blockW + (cardsWide-1)*cfg.blockGap;
+  const gridH = rowsNeeded*blockH + (rowsNeeded-1)*cfg.blockGap;
+
+  // Scale to fit inside the slot box
+  const scale = Math.min(1, cfg.maxW/gridW, cfg.maxH/gridH);
+  const W = gridW*scale;
+  const H = gridH*scale;
+
+  const filled = '#2a6ec8';
+  const empty  = '#e6dec5';
+  const border = '#2a2118';
+
+  function drawCard(ox, oy, filledCount){
+    let s = '';
+    // No outer rect — cleaner look. Dots speak for themselves.
+    for(let col=0; col<2; col++){
+      for(let row=0; row<5; row++){
+        const idx = col*5 + row;
+        const cx = ox + cfg.dot/2 + col*(cfg.dot + cfg.gap) + cfg.gap/2;
+        const cy = oy + cfg.dot/2 + row*(cfg.dot + cfg.gap) + cfg.gap/2;
+        const r = cfg.dot/2 - 0.4;
+        s += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${idx<filledCount?filled:empty}" stroke="${border}" stroke-width=".6"/>`;
+      }
+    }
+    return s;
+  }
+
+  let svg = '';
+  cards.forEach((fc, i)=>{
+    const row = Math.floor(i/PER_ROW);
+    const col = i % PER_ROW;
+    // If this is the last row and it has fewer cards than PER_ROW, center it.
+    const thisRowCount = (row === rowsNeeded-1) ? lastRowCount : PER_ROW;
+    const rowW = thisRowCount*blockW + (thisRowCount-1)*cfg.blockGap;
+    const xOffset = (gridW - rowW)/2;
+    const ox = xOffset + col*(blockW + cfg.blockGap);
+    const oy = row*(blockH + cfg.blockGap);
+    svg += drawCard(ox, oy, fc);
+  });
+
+  return `<svg class="pv pv-${size}" viewBox="0 0 ${gridW} ${gridH}" width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" style="display:block">${svg}</svg>`;
+}
+
+function showProblemOnCard(p){
+  currentProblem = p;
+  state.correctAnswer = p.ans;
+  state.answered = false;
+  // Prompt: each digit gets its PCA frame above it. The ?  on the right is
+  // unknown (no frame yet — revealed after answering).
+  promptEl.innerHTML = `
+    <span class="pv-num">
+      <span class="pv-digit">${p.a}</span>
+      <span class="pv-box">${placeValueSVG(p.a, {size:'prompt'})}</span>
+    </span>
+    <span class="eq">${p.op}</span>
+    <span class="pv-num">
+      <span class="pv-digit">${p.b}</span>
+      <span class="pv-box">${placeValueSVG(p.b, {size:'prompt'})}</span>
+    </span>
+    <span class="eq">=</span>
+    <span class="pv-num pv-num--unknown">
+      <span class="pv-digit">?</span>
+      <span class="pv-box pv-box--empty" aria-hidden="true"></span>
+    </span>`;
+  answersEl.innerHTML = '';
+  p.choices.forEach((c, i) => {
+    const b = document.createElement('button');
+    b.innerHTML = `<span class="pv-digit">${c}</span><span class="pv-box pv-box--answer">${placeValueSVG(c, {size:'answer'})}</span>`;
+    b.dataset.val = c;
+    b.addEventListener('click', ()=>chooseAnswer(c, b, i));
+    answersEl.appendChild(b);
+  });
+}
+// keep old name as alias for compatibility
+function setProblem(p){
+  // Assign this problem to the next gate that doesn't have one, and show on card.
+  // In the new flow, every gate is pre-built with its own problem; this is called
+  // only when recycling a gate to the back.
+  showProblemOnCard(p);
+}
+
+/* Feudal-Japan TORII gates — one torii per answer, in a row.
+   Anatomy: two vermilion pillars (hashira), a black top beam (kasagi) with
+   upturned ends, a smaller beam below (nuki), and a hanging tablet (gaku)
+   mounted between the two beams containing the number. */
+const toriiRed   = new THREE.MeshStandardMaterial({color:'#b53a2a', flatShading:true, roughness:.9});
+const toriiDark  = new THREE.MeshStandardMaterial({color:'#1e1a15', flatShading:true, roughness:.95});
+const toriiBone  = new THREE.MeshStandardMaterial({color:'#f4ead3', flatShading:true, roughness:1});
+function buildTorii(laneWidth, val, isCorrect){
+  const t = new THREE.Group();
+  const pillarH = 3.0;
+  const pillarR = 0.11;
+  // Pillars (hashira) — slim cylinders pushed to the sides so the center is clear
+  const pL = new THREE.Mesh(new THREE.CylinderGeometry(pillarR*1.05, pillarR, pillarH, 10), toriiRed);
+  pL.position.set(-laneWidth/2, pillarH/2, 0); pL.castShadow = true;
+  const pR = pL.clone(); pR.position.x = laneWidth/2;
+  t.add(pL, pR);
+  // Kasagi (top beam) — wider than the pillars, with upturned ends
+  const kasagiW = laneWidth + 0.55;
+  const kasagi = new THREE.Mesh(new THREE.BoxGeometry(kasagiW, 0.14, 0.28), toriiDark);
+  kasagi.position.y = pillarH + 0.07; kasagi.castShadow = true;
+  t.add(kasagi);
+  // Upturned ends (slight wedges)
+  const endL = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.1, 0.28), toriiDark);
+  endL.position.set(-kasagiW/2 - 0.04, pillarH + 0.14, 0); endL.rotation.z = 0.35;
+  const endR = endL.clone(); endR.position.x = kasagiW/2 + 0.04; endR.rotation.z = -0.35;
+  t.add(endL, endR);
+  // Shimaki (secondary beam below kasagi) — vermilion
+  const shimaki = new THREE.Mesh(new THREE.BoxGeometry(kasagiW - 0.18, 0.1, 0.22), toriiRed);
+  shimaki.position.y = pillarH - 0.05;
+  t.add(shimaki);
+  // Nuki (lower cross beam, passes through the pillars)
+  const nuki = new THREE.Mesh(new THREE.BoxGeometry(laneWidth + 0.25, 0.1, 0.18), toriiRed);
+  nuki.position.y = pillarH * 0.62;
+  t.add(nuki);
+  // Gaku (wooden tablet hanging between the two beams) with the answer number
+  const gakuW = Math.min(laneWidth * 0.95, 0.95);
+  const gakuH = 0.75;
+  const gakuBack = new THREE.Mesh(
+    new THREE.BoxGeometry(gakuW + 0.12, gakuH + 0.12, 0.08),
+    toriiDark
+  );
+  gakuBack.position.set(0, pillarH - 0.42, 0.02);
+  t.add(gakuBack);
+  const gaku = new THREE.Mesh(
+    new THREE.PlaneGeometry(gakuW, gakuH),
+    new THREE.MeshStandardMaterial({map: makeNumberTexture(val, '#1e1a15', '#f4ead3'), roughness:1})
+  );
+  gaku.position.set(0, pillarH - 0.42, 0.07);
+  t.add(gaku);
+  const gakuBk = gaku.clone(); gakuBk.rotation.y = Math.PI; gakuBk.position.z = -0.03;
+  t.add(gakuBk);
+  // Note: no visual hint distinguishes the correct torii — the student must solve the problem.
+  return t;
+}
+
+/* We arrange one "gateway" as 4 torii in a row, each with a choice number.
+   The player is continuously moving forward; their lane shifts based on the button pressed. */
+function layoutGateArches(gate, problem){
+  // clear children tagged as 'arch'
+  [...gate.children].forEach(ch=>{ if(ch.userData.isArch) gate.remove(ch); });
+
+  const choices = problem.choices;
+  const correctAnswer = problem.ans;
+  const laneWidth = 1.1;            // torii opening width
+  const laneGap   = 0.55;           // space between torii
+  const totalWidth = laneWidth * 4 + laneGap * 3;
+  const startX = -totalWidth/2 + laneWidth/2;
+  choices.forEach((val, i)=>{
+    const arch = new THREE.Group();
+    arch.userData.isArch = true;
+    arch.userData.value = val;
+    arch.userData.laneIndex = i;
+
+    // Torii structure (posts+beams+tablet)
+    const torii = buildTorii(laneWidth, val, val===correctAnswer);
+    arch.add(torii);
+
+    // Floor stone (tatami-style). Turns red/green when chosen.
+    const mat = new THREE.Mesh(
+      new THREE.PlaneGeometry(laneWidth*0.9, 0.7),
+      new THREE.MeshStandardMaterial({color:'#ece2c8', roughness:1})
+    );
+    mat.rotation.x = -Math.PI/2;
+    mat.position.set(0, 0.05, 0.4);
+    arch.userData.mat = mat;
+    arch.add(mat);
+
+    // Mini goblin guarding this lane (positioned just past the torii opening)
+    const goblin = makeGoblin();
+    goblin.position.set(0, 0, 0.45);
+    goblin.scale.setScalar(0.85);
+    goblin.rotation.y = Math.PI;
+    arch.userData.goblin = goblin;
+    arch.userData.defeated = false;
+    arch.add(goblin);
+
+    arch.position.x = startX + i*(laneWidth + laneGap);
+    gate.add(arch);
+  });
+  gate.userData.problem = problem;
+  gate.userData.isQuestionGate = true;
+  gate.userData.resolved = false;
+}
+
+/* ---------------- Gate recycling ---------------- */
+// Each gate carries a fresh problem with 4 arches. No more decorative banners.
+function placeGatesInitial(){
+  gates.forEach((g, i) => {
+    g.position.x = 0;
+    g.position.y = 0;
+    g.position.z = -18 - i*GATE_SPACING;
+    g.userData.resolved = false;
+    // clear prior arches
+    [...g.children].forEach(ch=>{ if(ch.userData.isArch) g.remove(ch); });
+  });
+  // Build a problem for every gate so students never see an empty gate.
+  gates.forEach((g)=>{
+    const problem = makeProblem();
+    g.userData.problem = problem;
+    layoutGateArches(g, problem);
+  });
+  // Make the first gate the "current" one for the DOM question card.
+  showProblemOnCard(gates[0].userData.problem);
+}
+
+placeGatesInitial();
+
+/* ---------------- Answer selection ---------------- */
+// Player may change their mind as long as the gate hasn't reached them yet.
+// Each click updates the target lane + highlights; resolution still happens when
+// the gate passes the ninja (using whichever lane he's closest to at that moment).
+function chooseAnswer(val, btnEl, laneIndex){
+  if(!state.running) return; // allow clicks even when paused so the player can plan
+  const gate = gates[0];
+  if(!gate || gate.userData.resolved) return;
+
+  // Move player toward the chosen lane on the upcoming gate
+  const arches = gate.children.filter(c=>c.userData.isArch);
+  const myArch = arches[laneIndex];
+  if(myArch){
+    state.laneTargetX = gate.position.x + myArch.position.x;
+    // reset all floor mats on this gate, then highlight the chosen one
+    arches.forEach(a=>{
+      if(a.userData.mat) a.userData.mat.material.color.set('#fff7e3');
+    });
+    myArch.userData.mat.material.color.set(val===state.correctAnswer ? '#c7efc9' : '#ffd3d3');
+  }
+
+  // Update button visuals: clear previous markers, then re-apply for this click
+  [...answersEl.children].forEach(b=>{
+    b.classList.remove('correct','wrong','selected');
+    b.disabled = false;
+  });
+  if(btnEl){
+    btnEl.classList.add('selected');
+    if(val === state.correctAnswer) btnEl.classList.add('correct');
+    else btnEl.classList.add('wrong');
+  }
+  // Track that an answer has been chosen (resolution logic uses ninja position, so
+  // this just marks "not-unattempted" for analytics — NOT locking the player in).
+  state.answered = true;
+}
+
+/* ---------------- Game loop ---------------- */
+const clock = new THREE.Clock();
+function resize(){
+  const w = innerWidth, h = innerHeight;
+  renderer.setSize(w,h,false);
+  camera.aspect = w/h;
+  camera.updateProjectionMatrix();
+}
+addEventListener('resize', resize); resize();
+
+let time = 0;
+function tick(){
+  requestAnimationFrame(tick);
+  const dt = Math.min(0.033, clock.getDelta());
+  time += dt;
+
+  // Auto-advance forward if running
+  // Auto-advance forward if running AND not paused
+  const active = state.running && !state.paused;
+  if(active){
+    state.speed += dt * 0.04; // slowly ramps
+    state.distance += state.speed * dt;
+  }
+
+  // Move world: we keep player at z=0 and slide everything toward +z (since camera looks down -z).
+  // Easier: move gates/scenery/stars/stripes by +state.speed*dt*z direction.
+  const adv = active ? state.speed * dt : 0;
+
+  // Scenery recycle
+  scenery.forEach(obj=>{
+    obj.position.z += adv;
+    if(obj.position.z > 14){
+      obj.position.z -= 230 + Math.random()*10;
+      obj.position.x = (Math.random()<.5?-1:1) * (3 + Math.random()*10);
+      if(obj.children.length>=3 && obj.children[0].geometry.type==='IcosahedronGeometry'){
+        // cloud — elevate
+        obj.position.y = 8 + Math.random()*4;
+      }
+    }
+  });
+  // Stripe cycle (simple)
+  stripes.children.forEach(s=>{
+    s.position.z += adv;
+    if(s.position.z > 10) s.position.z -= 160;
+  });
+  // Goblin idle wiggle (per gate)
+  gates.forEach(g=>{
+    g.children.forEach(arch=>{
+      if(!arch.userData.isArch) return;
+      const gob = arch.userData.goblin;
+      if(!gob || arch.userData.defeated) return;
+      gob.position.y = Math.abs(Math.sin(time*4 + arch.position.x))*0.12;
+      gob.rotation.y = Math.PI + Math.sin(time*3 + arch.position.x)*0.25;
+    });
+  });
+
+  // Gates march forward; when the front gate passes the player, resolve the answer.
+  gates.forEach(g=>{ g.position.z += adv; });
+  const front = gates[0];
+  if(active && front.position.z > -0.5 && !front.userData.resolved){
+    // resolve
+    front.userData.resolved = true;
+    const arches = front.children.filter(c=>c.userData.isArch);
+    // If the student didn't choose, count as wrong
+    let chosenArch = null;
+    if(state.answered){
+      // find which arch is closest to player x
+      let best = Infinity;
+      arches.forEach(a=>{
+        const worldX = front.position.x + a.position.x;
+        const d = Math.abs(worldX - player.position.x);
+        if(d<best){best=d; chosenArch=a;}
+      });
+    }
+    const correct = chosenArch && chosenArch.userData.value === state.correctAnswer;
+    if(correct){
+      state.streak += 1;
+      streakEl.textContent = state.streak;
+      state.score += 1;
+      scoreEl.textContent = state.score;
+      flash('⚔️ Acertou!', 'good');
+      // defeat the goblin: mark, shrink + spin out
+      if(chosenArch && chosenArch.userData.goblin){
+        chosenArch.userData.defeated = true;
+        defeatedGoblins.push({g: chosenArch.userData.goblin, t: 0});
+      }
+      celebrate();
+    } else {
+      // Endless mode with 3 lives — wrong answer costs a life and resets combo.
+      state.streak = 0;
+      state.lives -= 1;
+      streakEl.textContent = state.streak;
+      renderLives();
+      flash('Ops!', 'bad');
+      if(state.lives <= 0){
+        gameOver();
+        return;
+      }
+    }
+
+    // Recycle this gate to the back, assigning a NEW problem
+    front.position.z = gates[gates.length-1].position.z - GATE_SPACING;
+    front.userData.resolved = false;
+    // rotate gates array
+    gates.push(gates.shift());
+    // give the recycled gate (now at the back) a fresh problem
+    const recycled = gates[gates.length-1];
+    const newProblem = makeProblem();
+    recycled.userData.problem = newProblem;
+    layoutGateArches(recycled, newProblem);
+    // Show the NEXT upcoming gate's problem on the DOM card
+    showProblemOnCard(gates[0].userData.problem);
+  }
+
+  // Player smooth lane movement
+  if(state.laneTargetX !== undefined){
+    state.laneX += (state.laneTargetX - state.laneX) * Math.min(1, dt*6);
+  }
+  player.position.x = state.laneX;
+
+  // Ninja run cycle: only animate while actively running (freezes when paused).
+  const runT = time * (active ? 8 : 0);
+  const bob = Math.abs(Math.sin(runT));
+  player.position.y = 0.0 + bob*0.12;
+  player.rotation.z = Math.sin(runT)*0.04;
+  player.rotation.y = -state.laneX*0.15;
+  if(player.userData.sword){
+    player.userData.sword.rotation.z = -0.3 + Math.sin(runT*1.2)*0.4;
+  }
+  shadowDisc.position.x = player.position.x;
+  shadowDisc.scale.setScalar(1 - bob*0.15);
+  shadowDisc.material.opacity = 0.28 - bob*0.08;
+
+  // Camera follow
+  const camTargetX = player.position.x * 0.4;
+  camera.position.x += (camTargetX - camera.position.x) * Math.min(1, dt*4);
+  camera.position.y = 4.8 + Math.sin(time*2)*0.05;
+  camera.position.z = 8;
+  camera.lookAt(player.position.x*0.3, 1.0, -4);
+
+  renderer.render(scene, camera);
+}
+tick();
+
+/* ---------------- Celebrations ---------------- */
+const confettiPool = [];
+const conMat = [
+  new THREE.MeshBasicMaterial({color:'#ffcc33'}),
+  new THREE.MeshBasicMaterial({color:'#8a6dff'}),
+  new THREE.MeshBasicMaterial({color:'#3fa34d'}),
+  new THREE.MeshBasicMaterial({color:'#f5a524'}),
+  new THREE.MeshBasicMaterial({color:'#ff8aa0'}),
+];
+for(let i=0;i<60;i++){
+  const m = new THREE.Mesh(new THREE.BoxGeometry(0.12,0.12,0.02), conMat[i%conMat.length]);
+  m.visible=false;
+  scene.add(m);
+  confettiPool.push({mesh:m, vx:0, vy:0, vz:0, life:0});
+}
+function celebrate(){
+  confettiPool.forEach(c=>{
+    c.mesh.visible=true;
+    c.mesh.position.set(player.position.x + (Math.random()-.5)*0.4, 1.6, player.position.z);
+    c.vx = (Math.random()-.5)*4;
+    c.vy = 3 + Math.random()*3;
+    c.vz = -2 + Math.random()*1.5;
+    c.life = 1.1 + Math.random()*0.6;
+  });
+}
+setInterval(()=>{ // update confetti
+  const dt = 1/30;
+  confettiPool.forEach(c=>{
+    if(!c.mesh.visible) return;
+    c.life -= dt;
+    if(c.life<=0){ c.mesh.visible=false; return; }
+    c.vy -= 9.8*dt;
+    c.mesh.position.x += c.vx*dt;
+    c.mesh.position.y += c.vy*dt;
+    c.mesh.position.z += c.vz*dt;
+    c.mesh.rotation.x += dt*5;
+    c.mesh.rotation.y += dt*6;
+    if(c.mesh.position.y<0.05) c.mesh.visible=false;
+  });
+},33);
+
+/* ---------------- Keyboard shortcuts: 1-4 keys for answers ---------------- */
+addEventListener('keydown', e=>{
+  if(!state.running) return;
+  const n = parseInt(e.key,10);
+  if(n>=1 && n<=4){
+    const btn = answersEl.children[n-1];
+    if(btn) btn.click();
+  }
+});
+
+/* ---------------- Overlay handling ---------------- */
+function showOverlay(title, text, btn){
+  ovTitle.textContent = title;
+  ovText.textContent = text;
+  ovBtn.textContent = btn;
+  overlay.style.display = 'flex';
+}
+function hideOverlay(){ overlay.style.display='none'; }
+
+function start(){
+  state.running = true;
+  state.paused = false;
+  state.baseSpeed = DIFFS[state.diff].base;
+  state.speed = state.baseSpeed;
+  state.level = 1; lvlEl.textContent = 1;
+  state.score = 0; scoreEl.textContent = 0;
+  state.streak = 0; streakEl.textContent = 0;
+  state.lives = 3; renderLives();
+  placeGatesInitial();
+  state.laneX = 0; state.laneTargetX = 0;
+  player.position.x = 0;
+  hideOverlay();
+  showBanner('Nível 1 — Avante!');
+}
+function gameOver(){
+  state.running = false;
+  showOverlay(`Fim da corrida! ${state.score} pontos`, `Combo máximo: ${state.maxStreak||0}. Voltando do início — bora de novo?`, 'Jogar de novo');
+}
+
+/* ---------- Difficulty ---------- */
+const DIFFS = {
+  easy:   {base: 1.8, ramp: 0.15},
+  normal: {base: 6.0, ramp: 0.6},
+  hard:   {base: 8.5, ramp: 0.9},
+};
+state.diff = 'normal';
+state.baseSpeed = DIFFS.normal.base;
+state.speed = DIFFS.normal.base;
+
+const diffbar = document.getElementById('diffbar');
+diffbar.addEventListener('click', (e)=>{
+  const btn = e.target.closest('button[data-diff]');
+  if(!btn) return;
+  [...diffbar.children].forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  state.diff = btn.dataset.diff;
+  const base = DIFFS[state.diff].base;
+  state.baseSpeed = base + (state.level-1) * DIFFS[state.diff].ramp;
+  // apply immediately so the student feels the change
+  state.speed = state.baseSpeed;
+  showBanner(`Velocidade: ${btn.textContent}`);
+});
+
+/* ---------- Restart button ---------- */
+document.getElementById('restartBtn').addEventListener('click', ()=>{
+  start();
+});
+
+/* ---------- Pause / Play button ---------- */
+const pauseBtn = document.getElementById('pauseBtn');
+const pauseIcon = document.getElementById('pauseIcon');
+const playIcon  = document.getElementById('playIcon');
+function setPaused(p){
+  state.paused = p;
+  pauseIcon.style.display = p ? 'none' : '';
+  playIcon.style.display  = p ? '' : 'none';
+  pauseBtn.title = p ? 'Continuar' : 'Pausar';
+  pauseBtn.setAttribute('aria-label', p ? 'Continuar' : 'Pausar');
+  if(p) showBanner('Pausado');
+}
+pauseBtn.addEventListener('click', ()=>{
+  if(!state.running) return;
+  setPaused(!state.paused);
+});
+addEventListener('keydown', e=>{
+  if(e.code === 'Space' || e.key === 'p' || e.key === 'P'){
+    if(state.running){ e.preventDefault(); setPaused(!state.paused); }
+  }
+});
+
+/* ---------- Settings: outfit color + weapon ---------- */
+const OUTFIT_COLORS = {
+  red:   {tunic:'#c83c3c'},
+  green: {tunic:'#3fa34d'},
+  blue:  {tunic:'#2a6ec8'},
+};
+function applyOutfit(colorKey){
+  const c = OUTFIT_COLORS[colorKey] || OUTFIT_COLORS.red;
+  tunicMat.color.set(c.tunic);
+  player.userData.outfit = colorKey;
+}
+
+const settingsBtn = document.getElementById('settingsBtn');
+const settingsPanel = document.getElementById('settingsPanel');
+settingsBtn.addEventListener('click', (e)=>{
+  e.stopPropagation();
+  settingsPanel.classList.toggle('open');
+});
+document.addEventListener('click', (e)=>{
+  if(!settingsPanel.classList.contains('open')) return;
+  if(settingsPanel.contains(e.target) || settingsBtn.contains(e.target)) return;
+  settingsPanel.classList.remove('open');
+});
+
+const colorSwatches = document.getElementById('colorSwatches');
+// mark 'red' as default active
+colorSwatches.querySelector('[data-color="red"]').classList.add('active');
+colorSwatches.addEventListener('click', (e)=>{
+  const sw = e.target.closest('.swatch');
+  if(!sw) return;
+  [...colorSwatches.children].forEach(c=>c.classList.remove('active'));
+  sw.classList.add('active');
+  applyOutfit(sw.dataset.color);
+});
+
+const weaponRow = document.getElementById('weaponRow');
+weaponRow.addEventListener('click', (e)=>{
+  const btn = e.target.closest('button[data-weapon]');
+  if(!btn) return;
+  [...weaponRow.children].forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  buildWeapon(btn.dataset.weapon);
+  player.userData.weapon = btn.dataset.weapon;
+});
+
+/* ---------- Number range selector ---------- */
+const rangeRow = document.getElementById('rangeRow');
+rangeRow.addEventListener('click', (e)=>{
+  const btn = e.target.closest('button[data-range]');
+  if(!btn) return;
+  [...rangeRow.children].forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  state.numberRange = parseInt(btn.dataset.range, 10);
+  // Refresh all upcoming gates so the new range takes effect immediately
+  gates.forEach(g=>{
+    const p = makeProblem();
+    g.userData.problem = p;
+    layoutGateArches(g, p);
+  });
+  if(gates[0]) showProblemOnCard(gates[0].userData.problem);
+});
+
+/* ---------- Display mode (Número / Cardboard / Ambos) ---------- */
+const displayRow = document.getElementById('displayRow');
+const qcardEl = document.getElementById('qcard');
+function applyDisplayMode(mode){
+  state.displayMode = mode;
+  qcardEl.classList.remove('mode-number','mode-cardboard','mode-both');
+  qcardEl.classList.add('mode-'+mode);
+}
+applyDisplayMode('both');
+displayRow.addEventListener('click', (e)=>{
+  const btn = e.target.closest('button[data-display]');
+  if(!btn) return;
+  [...displayRow.children].forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  applyDisplayMode(btn.dataset.display);
+});
+
+/* ---------- Scene / theme selector ---------- */
+// Theme presets recolor ground/path/sky and replace scenery mix.
+const THEMES = {
+  forest: {
+    ground:'#86c972', path:'#e9c98b', stripe:'#fff7e3',
+    skyTop:'#bfe3ff', skyBot:'#ffd9a8',
+    bodyBg:'linear-gradient(180deg,#f7e9c9 0%,#e9d3a1 60%,#bfe3ff 100%)',
+    trunk:'#8a5a2b', leafPal:['#5fa85a','#72b962','#3f7a3b','#8fc76f'],
+    rock:'#b7b0a3', cloud:'#ffffff',
+    weights:{tree:0.7, rock:0.2, cloud:0.1}, fog:null,
+  },
+  snow: {
+    ground:'#eaf2f8', path:'#c8d4de', stripe:'#ffffff',
+    skyTop:'#dce9f5', skyBot:'#f6f9fc',
+    bodyBg:'linear-gradient(180deg,#f0f6fc 0%,#c9dbec 60%,#8ba9c7 100%)',
+    trunk:'#5a4a3a', leafPal:['#e6eef7','#ffffff','#c8d8ea','#f4f9ff'],
+    rock:'#d8dee6', cloud:'#f0f4fa',
+    weights:{tree:0.55, rock:0.3, cloud:0.15}, fog:{color:'#d8e4ee', near:22, far:90},
+  },
+  cave: {
+    ground:'#3a2f28', path:'#8a725a', stripe:'#d9b88a',
+    skyTop:'#1a1410', skyBot:'#3a2820',
+    bodyBg:'linear-gradient(180deg,#1b1410 0%,#2a1e17 60%,#3a2820 100%)',
+    trunk:'#2a2118', leafPal:['#2a3030','#3a3030','#2a2820','#453830'],
+    rock:'#6b5a4a', cloud:'#2a2420',
+    weights:{tree:0.1, rock:0.85, cloud:0.05}, fog:{color:'#1b1410', near:14, far:65},
+  },
+};
+state.theme = 'forest';
+function rebuildScenery(t){
+  // remove old scenery
+  scenery.forEach(s => scene.remove(s));
+  scenery.length = 0;
+  const trunkMat = new THREE.MeshStandardMaterial({color:t.trunk, flatShading:true, roughness:1});
+  const rockMat  = new THREE.MeshStandardMaterial({color:t.rock, flatShading:true, roughness:1});
+  const cloudMat = new THREE.MeshStandardMaterial({color:t.cloud, flatShading:true, roughness:1});
+  const leafMats = t.leafPal.map(c=> new THREE.MeshStandardMaterial({color:c, flatShading:true, roughness:1}));
+  function tree(){
+    const g = new THREE.Group();
+    const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.25,0.3,1.2,6), trunkMat);
+    trunk.position.y = 0.6; trunk.castShadow = true; g.add(trunk);
+    for(let i=0;i<3;i++){
+      const s = 0.9 - i*0.15;
+      const cone = new THREE.Mesh(new THREE.ConeGeometry(s, 1.1, 7), leafMats[i%leafMats.length]);
+      cone.position.y = 1.2 + i*0.55; cone.castShadow = true; g.add(cone);
+    }
+    return g;
+  }
+  function rock(){
+    const g = new THREE.Group();
+    const r = new THREE.Mesh(new THREE.DodecahedronGeometry(0.45+Math.random()*0.7), rockMat);
+    r.castShadow = true; r.rotation.set(Math.random(),Math.random(),Math.random());
+    g.add(r);
+    return g;
+  }
+  function cloud(){
+    const g = new THREE.Group();
+    for(let i=0;i<4;i++){
+      const s = 0.8 + Math.random()*0.6;
+      const mesh = new THREE.Mesh(new THREE.IcosahedronGeometry(s, 0), cloudMat);
+      mesh.position.set(i*0.9 - 1.2, Math.random()*0.3, Math.random()*0.4);
+      g.add(mesh);
+    }
+    return g;
+  }
+  for(let z=10; z>-220; z-=2.2){
+    const side = Math.random()<.5 ? -1 : 1;
+    const x = side * (3 + Math.random()*10);
+    const r = Math.random();
+    let item;
+    if(r < t.weights.tree) item = tree();
+    else if(r < t.weights.tree + t.weights.rock) item = rock();
+    else { item = cloud(); item.position.y = 8 + Math.random()*4; }
+    item.position.x = x;
+    item.position.z = z + Math.random()*1.5;
+    if(!item.position.y) item.position.y = 0;
+    scene.add(item);
+    scenery.push(item);
+  }
+}
+function applyScene(key){
+  const t = THEMES[key] || THEMES.forest;
+  state.theme = key;
+  groundMat.color.set(t.ground);
+  pathMat.color.set(t.path);
+  stripeMat.color.set(t.stripe);
+  skyMat.uniforms.top.value.set(t.skyTop);
+  skyMat.uniforms.bot.value.set(t.skyBot);
+  document.body.style.background = t.bodyBg;
+  scene.fog = t.fog
+    ? new THREE.Fog(new THREE.Color(t.fog.color).getHex(), t.fog.near, t.fog.far)
+    : null;
+  rebuildScenery(t);
+  showBanner(key === 'forest' ? 'Floresta' : key === 'snow' ? 'Montanha de Neve' : 'Caverna');
+}
+const sceneRow = document.getElementById('sceneRow');
+sceneRow.addEventListener('click', (e)=>{
+  const btn = e.target.closest('button[data-scene]');
+  if(!btn) return;
+  [...sceneRow.children].forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  applyScene(btn.dataset.scene);
+});
+
+/* ---------- Defeated goblin animation pool ---------- */
+const defeatedGoblins = [];
+setInterval(()=>{
+  const dt = 1/30;
+  for(let i=defeatedGoblins.length-1;i>=0;i--){
+    const d = defeatedGoblins[i];
+    d.t += dt;
+    d.g.rotation.y += dt*8;
+    d.g.position.y += dt*2.5;
+    d.g.scale.multiplyScalar(0.92);
+    if(d.t > 0.8){ d.g.visible = false; defeatedGoblins.splice(i,1); }
+  }
+}, 33);
+
+/* ---------- Background music (procedural, Japanese-adventure style) ---------- */
+/* Uses Web Audio to synthesize a looping piece in a pentatonic (hirajōshi-
+   inspired) scale. Soft koto-like plucks over a slow drone, with a quiet
+   taiko tap marking the downbeat. All generated live — no external audio
+   files. User can toggle on/off from Configurações. */
+const Music = (()=>{
+  let ctx = null;
+  let master = null;
+  let running = false;
+  let timerId = null;
+  let beat = 0;
+
+  // Yo pentatonic (major-ish) scale on A: a clean, warm Japanese sound.
+  // Scale degrees: 1, 2, 3, 5, 6 — all consonant against an A-E drone root.
+  //   A  B  C#  E  F#
+  const base = 220;                                       // A3
+  const ratios = [1, 9/8, 5/4, 3/2, 5/3];                 // M2, M3, P5, M6
+  const scale = [];
+  for(let o=0; o<3; o++) for(const r of ratios) scale.push(base*r*Math.pow(2,o));
+
+  // Melody — gentle flowing lines, NOT wall-to-wall notes. Uses 8th notes
+  // with occasional longer notes (null = hold previous). Every phrase
+  // resolves cleanly back toward the tonic for harmony.
+  // Index legend: 0=A, 1=B, 2=C#, 3=E, 4=F#  (+octaves)
+  const phrases = [
+    // Phrase 1 — ascending/descending contour, anchored on A
+    [0, 2, 3, 4,   3, 2, 0, 1,   2, 3, 2, 0,   1, 0, null, null],
+    // Phrase 2 — stays in the middle, gentle arc
+    [3, 4, 3, 2,   0, 2, 3, 2,   1, 0, 1, 2,   3, 2, 0, null],
+    // Phrase 3 — reaches up to high A then resolves
+    [2, 3, 4, 5,   4, 3, 2, 3,   2, 0, 2, 1,   0, null, null, null],
+    // Phrase 4 — repose / breath
+    [0, null, 2, 3,   null, 2, 0, null,   1, 2, 1, 0,   null, null, null, null],
+  ];
+  let phraseIdx = 0;
+  let step = 0;
+  let lastFreq = base*2;  // tracks the previously-played pitch (for "null = hold")
+
+  function noteOn(freq, dur, gain, when, timbre='koto'){
+    const t = when;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0, t);
+    g.connect(master);
+
+    if(timbre === 'koto'){
+      // Authentic koto: plucked string with fast attack, long resonant decay,
+      // and a characteristic "body" formant. The string is mostly odd
+      // harmonics with slight detuning on the upper partials.
+      g.gain.linearRampToValueAtTime(gain, t + 0.006);      // snap
+      g.gain.exponentialRampToValueAtTime(gain*0.5, t + 0.08); // quick initial decay
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);  // long tail
+      // Fundamental
+      const o1 = ctx.createOscillator(); o1.type = 'triangle'; o1.frequency.value = freq;
+      // 3rd harmonic (slightly detuned for warmth)
+      const o2 = ctx.createOscillator(); o2.type = 'sine';     o2.frequency.value = freq * 3.01;
+      // 5th harmonic
+      const o3 = ctx.createOscillator(); o3.type = 'sine';     o3.frequency.value = freq * 5.02;
+      // Body resonance (subtle)
+      const o4 = ctx.createOscillator(); o4.type = 'sine';     o4.frequency.value = freq * 0.5;
+      const g1 = ctx.createGain(); g1.gain.value = 1.0;
+      const g2 = ctx.createGain(); g2.gain.value = 0.18;
+      const g3 = ctx.createGain(); g3.gain.value = 0.06;
+      const g4 = ctx.createGain(); g4.gain.value = 0.12;
+      o1.connect(g1).connect(g);
+      o2.connect(g2).connect(g);
+      o3.connect(g3).connect(g);
+      o4.connect(g4).connect(g);
+      [o1,o2,o3,o4].forEach(o=>{ o.start(t); o.stop(t + dur + 0.05); });
+    } else if(timbre === 'flute'){
+      // Shakuhachi: breathy sine with slow attack, gentle vibrato, soft decay.
+      g.gain.linearRampToValueAtTime(gain*0.6, t + 0.08);        // breathy in
+      g.gain.linearRampToValueAtTime(gain, t + 0.18);            // full body
+      g.gain.setValueAtTime(gain, t + Math.max(0.2, dur - 0.25));
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);      // soft release
+      const osc = ctx.createOscillator();
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      // Vibrato — delayed in, as a real player would
+      const vib = ctx.createOscillator(); vib.type = 'sine'; vib.frequency.value = 4.5;
+      const vibG = ctx.createGain();
+      vibG.gain.setValueAtTime(0, t);
+      vibG.gain.linearRampToValueAtTime(4, t + 0.35);  // vibrato depth ramps in
+      vib.connect(vibG).connect(osc.frequency);
+      // A touch of breath noise
+      const nb = ctx.createBufferSource();
+      const buf = ctx.createBuffer(1, ctx.sampleRate * (dur + 0.05), ctx.sampleRate);
+      const data = buf.getChannelData(0);
+      for(let i=0;i<data.length;i++) data[i] = (Math.random()*2-1) * 0.08;
+      nb.buffer = buf;
+      const nbp = ctx.createBiquadFilter(); nbp.type = 'bandpass';
+      nbp.frequency.value = freq * 2; nbp.Q.value = 6;
+      const nbg = ctx.createGain(); nbg.gain.value = 0.06;
+      nb.connect(nbp).connect(nbg).connect(g);
+      osc.connect(g);
+      osc.start(t); vib.start(t); nb.start(t);
+      osc.stop(t + dur + 0.05); vib.stop(t + dur + 0.05); nb.stop(t + dur + 0.05);
+    } else if(timbre === 'drone'){
+      // Warm sustained pad: dual oscillators with slow swell and release.
+      g.gain.linearRampToValueAtTime(gain, t + 0.45);
+      g.gain.setValueAtTime(gain, t + Math.max(0.5, dur - 0.6));
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      const o1 = ctx.createOscillator(); o1.type='sine';      o1.frequency.value = freq;
+      const o2 = ctx.createOscillator(); o2.type='triangle';  o2.frequency.value = freq*2;
+      const og = ctx.createGain(); og.gain.value = 0.2;
+      o1.connect(g); o2.connect(og).connect(g);
+      o1.start(t); o2.start(t);
+      o1.stop(t + dur + 0.05); o2.stop(t + dur + 0.05);
+    }
+  }
+  function taiko(when, accent=false){
+    // Taiko: mellow wooden thump — pitched sine that drops quickly, plus a
+    // touch of filtered noise for the stick attack.
+    const t = when;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(accent ? 0.3 : 0.14, t + 0.005);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.35);
+    g.connect(master);
+    const o = ctx.createOscillator(); o.type = 'sine';
+    o.frequency.setValueAtTime(140, t);
+    o.frequency.exponentialRampToValueAtTime(55, t + 0.2);
+    o.connect(g);
+    // Stick click — very short noise burst
+    const nb = ctx.createBufferSource();
+    const buf = ctx.createBuffer(1, ctx.sampleRate * 0.04, ctx.sampleRate);
+    const data = buf.getChannelData(0);
+    for(let j=0;j<data.length;j++) data[j] = (Math.random()*2-1) * (1 - j/data.length);
+    nb.buffer = buf;
+    const nbf = ctx.createBiquadFilter(); nbf.type = 'highpass'; nbf.frequency.value = 1800;
+    const nbg = ctx.createGain(); nbg.gain.value = accent ? 0.1 : 0.05;
+    nb.connect(nbf).connect(nbg).connect(g);
+    o.start(t); o.stop(t + 0.38);
+    nb.start(t); nb.stop(t + 0.05);
+  }
+
+  let tickToken = 0;        // increments each start() — only the current tick loop runs
+  function tick(myToken){
+    if(!running || myToken !== tickToken) return;
+    const now = ctx.currentTime;
+    // ~96 BPM, 8th-note steps — relaxed, breathing feel.
+    const stepDur = 0.31;
+    // Schedule 8 steps ahead for tight timing without stress.
+    for(let i=0;i<8;i++){
+      const when = now + i*stepDur + 0.05;
+      const phrase = phrases[phraseIdx];
+      const note = phrase[step % phrase.length];
+
+      if(note !== null && note !== undefined){
+        const freq = scale[note + 2];                                  // mid register
+        lastFreq = freq;
+        // Legato koto pluck — decay overlaps next note for continuity.
+        noteOn(freq, 0.85, 0.085, when, 'koto');
+
+        // Ornamental grace note on the very first step of a phrase —
+        // a quick upper neighbor tone plucked just before the beat.
+        // Guard against negative start times right after ctx resume.
+        if(step % phrase.length === 0 && (note + 3) < scale.length){
+          const graceWhen = Math.max(ctx.currentTime + 0.01, when - 0.055);
+          noteOn(scale[note + 3], 0.25, 0.04, graceWhen, 'koto');
+        }
+
+        // Counter-melody: a lower koto voice plucking every 2 steps
+        // on a chord tone (root, fifth, or third below), giving depth.
+        if(step % 2 === 0){
+          const harmonyIdxs = [0, 2, 3];                     // tonic, third, fifth
+          const hFreq = scale[harmonyIdxs[(step/2|0) % 3]];  // cycles through
+          noteOn(hFreq, 0.7, 0.045, when + 0.008, 'koto');
+        }
+      }
+
+      // Shakuhachi lead — enters every 4 bars (step 0, 16, 32...) and
+      // holds a long tone on a chord-tone of the phrase for breath/space.
+      if(step % 16 === 0){
+        const leadIdx = [3, 4, 0, 3][phraseIdx];             // E, F#, A, E
+        const leadFreq = scale[leadIdx + 2];
+        noteOn(leadFreq, 3.6, 0.08, when + 0.1, 'flute');
+      }
+
+      // Bass — I–V alternation every half-bar for gentle harmonic motion.
+      if(step % 8 === 0){
+        noteOn(base, 2.0, 0.07, when, 'drone');              // A (tonic)
+      }
+      if(step % 8 === 4){
+        noteOn(base * 3/2, 2.0, 0.055, when, 'drone');       // E (dominant)
+      }
+
+      // Pad swell every 4 bars for body/warmth
+      if(step % 32 === 0){
+        noteOn(base/2, 5.0, 0.035, when, 'drone');
+        noteOn(base, 5.0, 0.03, when, 'drone');
+      }
+
+      // Taiko: on beats 1 and 3 of each bar. Extra soft accent on bar one.
+      if(step % 4 === 0) taiko(when, step % 16 === 0);
+
+      step++;
+      if(step % phrase.length === 0){
+        phraseIdx = (phraseIdx + 1) % phrases.length;
+      }
+    }
+    timerId = setTimeout(()=>tick(myToken), stepDur*8*1000 - 60);
+  }
+
+  let starting = false;   // prevents concurrent start() calls from spinning up multiple tick loops
+  function start(){
+    if(running || starting) return;
+    starting = true;
+    if(!ctx){
+      ctx = new (window.AudioContext || window.webkitAudioContext)();
+      master = ctx.createGain();
+      master.gain.value = 0.25;
+      const lp = ctx.createBiquadFilter();
+      lp.type = 'lowpass'; lp.frequency.value = 3200;
+      master.connect(lp).connect(ctx.destination);
+    }
+    // Always restore full volume (stop() fades this out).
+    const now0 = ctx.currentTime;
+    master.gain.cancelScheduledValues(now0);
+    master.gain.setValueAtTime(0.25, now0);
+
+    const begin = ()=>{
+      starting = false;
+      if(running) return;                              // double-safety
+      running = true;
+      step = 0; phraseIdx = 0;
+      if(timerId){ clearTimeout(timerId); timerId = null; }
+      tickToken++;
+      tick(tickToken);
+    };
+    if(ctx.state === 'suspended'){
+      ctx.resume().then(begin).catch(()=>{ starting = false; });
+    } else {
+      begin();
+    }
+  }
+  function stop(){
+    running = false;
+    tickToken++;                                     // invalidate any pending tick
+    if(timerId){ clearTimeout(timerId); timerId = null; }
+    if(ctx){
+      // Hard-close the context so every scheduled oscillator is killed
+      // immediately — no tail, no chance of leaking audio. A fresh context
+      // will be created by start() next time.
+      try { ctx.close(); } catch(e){}
+      ctx = null; master = null;
+    }
+  }
+  return {start, stop, isRunning: ()=>running, hardClose: ()=>{
+    running = false;
+    if(timerId){ clearTimeout(timerId); timerId = null; }
+    if(ctx){
+      try { ctx.close(); } catch(e){}
+      ctx = null; master = null;
+    }
+  }};
+})();
+
+// Hard-close the audio context when the page is being unloaded.
+window.addEventListener('__music_hard_close', ()=>Music.hardClose());
+
+/* Music toggle button */
+const musicRow = document.getElementById('musicRow');
+musicRow.addEventListener('click', (e)=>{
+  const btn = e.target.closest('button[data-music]');
+  if(!btn) return;
+  [...musicRow.children].forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  if(btn.dataset.music === 'on') Music.start();
+  else Music.stop();
+});
+
+// Start music only when the user clicks "Começar" — this is a user gesture
+// so autoplay policies are satisfied, and there's no chance of overlapping
+// starts from multiple kickstart sources.
+ovBtn.addEventListener('click', ()=>{
+  const onBtn = musicRow.querySelector('[data-music="on"]');
+  if(onBtn && onBtn.classList.contains('active')) Music.start();
+  start();
+});
+
+// If the tab is backgrounded, browsers throttle setTimeout heavily — our
+// scheduler stalls. When the tab comes back, give it a fresh kick.
+document.addEventListener('visibilitychange', ()=>{
+  if(!document.hidden){
+    const onBtn = musicRow.querySelector('[data-music="on"]');
+    if(onBtn && onBtn.classList.contains('active') && !Music.isRunning()){
+      Music.start();
+    }
+  }
+});
+
+// Make sure the audio context is torn down when the page unloads so no
+// residual sound leaks out if the browser is slow to destroy the tab.
+function teardownAudio(){
+  try { Music.stop(); } catch(e){}
+  try {
+    // Force-close the audio context so all scheduled notes are cancelled.
+    if(window.AudioContext){
+      // The Music closure holds the ctx — stop() fades it, but we also want
+      // to hard-close. Dispatch a pagehide-safe close through a custom event.
+      window.dispatchEvent(new Event('__music_hard_close'));
+    }
+  } catch(e){}
+}
+window.addEventListener('pagehide', teardownAudio);
+window.addEventListener('beforeunload', teardownAudio);
+showOverlay('Corrida sem Fim', 'Você é um ninja! Escolha a resposta certa para derrotar o goblin. Você tem 3 vidas — some o máximo de pontos que conseguir! ⚔️', 'Começar');
+
+</script>
+</body>
+</html>
