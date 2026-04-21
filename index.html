@@ -965,6 +965,7 @@ function showProblemOnCard(p){
   currentProblem = p;
   state.correctAnswer = p.ans;
   state.answered = false;
+  state.boosting = false; // new gate, no boost yet
   // Prompt: each digit gets its PCA frame above it. The ?  on the right is
   // unknown (no frame yet — revealed after answering).
   promptEl.innerHTML = `
@@ -1160,6 +1161,10 @@ function chooseAnswer(val, btnEl, laneIndex){
   // Track that an answer has been chosen (resolution logic uses ninja position, so
   // this just marks "not-unattempted" for analytics — NOT locking the player in).
   state.answered = true;
+  // Dash toward the gate once the student has locked in the correct answer —
+  // cancels instantly if they switch to a wrong one. Speed returns to normal
+  // when the next gate is shown (see showProblemOnCard).
+  state.boosting = (val === state.correctAnswer);
 }
 
 /* ---------------- Game loop ---------------- */
@@ -1182,13 +1187,17 @@ function tick(){
   // Auto-advance forward if running AND not paused
   const active = state.running && !state.paused;
   if(active){
-    state.speed += dt * 0.04; // slowly ramps
+    const drift = (DIFFS[state.diff] && DIFFS[state.diff].drift) || 0;
+    state.speed += dt * drift; // per-difficulty drift; easy is 0 so it stays constant
     state.distance += state.speed * dt;
   }
 
   // Move world: we keep player at z=0 and slide everything toward +z (since camera looks down -z).
   // Easier: move gates/scenery/stars/stripes by +state.speed*dt*z direction.
-  const adv = active ? state.speed * dt : 0;
+  // Boost kicks in when the student has already locked the correct answer — we rush
+  // toward the gate so they don't wait. Cleared in showProblemOnCard for the next gate.
+  const boostMul = state.boosting && gates[0] && !gates[0].userData.resolved ? 3 : 1;
+  const adv = active ? state.speed * boostMul * dt : 0;
 
   // Scenery recycle
   scenery.forEach(obj=>{
@@ -1357,6 +1366,31 @@ addEventListener('keydown', e=>{
   }
 });
 
+/* ---------------- Click on torii to answer ---------------- */
+// Tap/click the 3D torii tablet or its goblin to pick that lane — same effect
+// as pressing the matching answer button. Uses raycasting against the front
+// gate's arches (each arch has userData.isArch + userData.value + laneIndex).
+const raycaster = new THREE.Raycaster();
+const pointer = new THREE.Vector2();
+renderer.domElement.addEventListener('pointerdown', (e)=>{
+  if(!state.running) return;
+  const gate = gates[0];
+  if(!gate || gate.userData.resolved) return;
+  const rect = renderer.domElement.getBoundingClientRect();
+  pointer.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+  pointer.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+  raycaster.setFromCamera(pointer, camera);
+  const arches = gate.children.filter(c=>c.userData.isArch);
+  const hits = raycaster.intersectObjects(arches, true);
+  if(!hits.length) return;
+  let obj = hits[0].object;
+  while(obj && !obj.userData.isArch) obj = obj.parent;
+  if(!obj) return;
+  const laneIndex = arches.indexOf(obj);
+  const btn = answersEl.children[laneIndex] || null;
+  chooseAnswer(obj.userData.value, btn, laneIndex);
+});
+
 /* ---------------- Overlay handling ---------------- */
 function showOverlay(title, text, btn){
   ovTitle.textContent = title;
@@ -1387,10 +1421,13 @@ function gameOver(){
 }
 
 /* ---------- Difficulty ---------- */
+// `drift` is how many speed-units per second the run accelerates during play.
+// Easy stays constant so the student can work at their own pace; harder modes
+// ramp up gradually.
 const DIFFS = {
-  easy:   {base: 1.8, ramp: 0.15},
-  normal: {base: 6.0, ramp: 0.6},
-  hard:   {base: 8.5, ramp: 0.9},
+  easy:   {base: 1.8, ramp: 0.15, drift: 0},
+  normal: {base: 6.0, ramp: 0.6,  drift: 0.04},
+  hard:   {base: 8.5, ramp: 0.9,  drift: 0.08},
 };
 state.diff = 'normal';
 state.baseSpeed = DIFFS.normal.base;
