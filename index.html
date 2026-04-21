@@ -1182,7 +1182,8 @@ function tick(){
   // Auto-advance forward if running AND not paused
   const active = state.running && !state.paused;
   if(active){
-    state.speed += dt * 0.04; // slowly ramps
+    const drift = (DIFFS[state.diff] && DIFFS[state.diff].drift) || 0;
+    state.speed += dt * drift; // per-difficulty drift; easy is 0 so it stays constant
     state.distance += state.speed * dt;
   }
 
@@ -1357,6 +1358,31 @@ addEventListener('keydown', e=>{
   }
 });
 
+/* ---------------- Click on torii to answer ---------------- */
+// Tap/click the 3D torii tablet or its goblin to pick that lane — same effect
+// as pressing the matching answer button. Uses raycasting against the front
+// gate's arches (each arch has userData.isArch + userData.value + laneIndex).
+const raycaster = new THREE.Raycaster();
+const pointer = new THREE.Vector2();
+renderer.domElement.addEventListener('pointerdown', (e)=>{
+  if(!state.running) return;
+  const gate = gates[0];
+  if(!gate || gate.userData.resolved) return;
+  const rect = renderer.domElement.getBoundingClientRect();
+  pointer.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+  pointer.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+  raycaster.setFromCamera(pointer, camera);
+  const arches = gate.children.filter(c=>c.userData.isArch);
+  const hits = raycaster.intersectObjects(arches, true);
+  if(!hits.length) return;
+  let obj = hits[0].object;
+  while(obj && !obj.userData.isArch) obj = obj.parent;
+  if(!obj) return;
+  const laneIndex = arches.indexOf(obj);
+  const btn = answersEl.children[laneIndex] || null;
+  chooseAnswer(obj.userData.value, btn, laneIndex);
+});
+
 /* ---------------- Overlay handling ---------------- */
 function showOverlay(title, text, btn){
   ovTitle.textContent = title;
@@ -1387,10 +1413,13 @@ function gameOver(){
 }
 
 /* ---------- Difficulty ---------- */
+// `drift` is how many speed-units per second the run accelerates during play.
+// Easy stays constant so the student can work at their own pace; harder modes
+// ramp up gradually.
 const DIFFS = {
-  easy:   {base: 1.8, ramp: 0.15},
-  normal: {base: 6.0, ramp: 0.6},
-  hard:   {base: 8.5, ramp: 0.9},
+  easy:   {base: 1.8, ramp: 0.15, drift: 0},
+  normal: {base: 6.0, ramp: 0.6,  drift: 0.04},
+  hard:   {base: 8.5, ramp: 0.9,  drift: 0.08},
 };
 state.diff = 'normal';
 state.baseSpeed = DIFFS.normal.base;
