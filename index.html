@@ -25,7 +25,7 @@
 
   /* HUD — a single row of info chips at the top. Controls (pause/restart/settings)
      live in a discreet vertical stack on the right edge so they stay out of the prompt. */
-  .hud{position:fixed;top:12px;left:12px;right:58px;display:flex;align-items:center;pointer-events:none;z-index:3;gap:8px;flex-wrap:wrap}
+  .hud{position:fixed;top:12px;left:12px;right:12px;display:flex;justify-content:center;align-items:center;pointer-events:none;z-index:3;gap:8px;flex-wrap:wrap}
   .chip{background:var(--panel);border:3px solid var(--ink);border-radius:999px;padding:8px 14px;font-weight:800;font-size:16px;box-shadow:0 4px 0 var(--ink);display:flex;align-items:center;gap:8px}
   .chip .dot{width:12px;height:12px;border-radius:50%}
   .chip.level .dot{background:#8a6dff}
@@ -38,8 +38,11 @@
     transform:translateY(-1px)}
   .heart.gone{opacity:.2;filter:grayscale(1)}
 
-  /* Right-side controls: small, semi-transparent until hovered/focused */
-  .sidebar{position:fixed;right:10px;top:12px;display:flex;flex-direction:column;gap:8px;z-index:5;pointer-events:auto}
+  /* Lives bar — centered just above the answers so the player sees it next to the choices */
+  .lives-bar{position:fixed;left:50%;transform:translateX(-50%);bottom:100px;z-index:3;pointer-events:none;display:flex;justify-content:center}
+
+  /* Right-side controls: stacked on the right edge above the answers, discreet until hovered */
+  .sidebar{position:fixed;right:10px;bottom:100px;display:flex;flex-direction:column;gap:8px;z-index:5;pointer-events:auto}
   .sidebar .iconbtn{width:38px;height:38px;opacity:.7;box-shadow:0 2px 0 var(--ink);border-width:2px;transition:opacity .2s,transform .06s}
   .sidebar .iconbtn:hover,.sidebar .iconbtn:focus-visible{opacity:1}
   .sidebar .iconbtn svg{width:20px;height:20px}
@@ -56,7 +59,7 @@
   .diffbar button.active{background:#8a6dff;color:#fff}
 
   /* Settings panel */
-  .settings-panel{position:fixed;top:60px;right:10px;z-index:6;background:var(--panel);border:3px solid var(--ink);border-radius:22px;box-shadow:0 6px 0 var(--ink);padding:16px 18px;width:260px;max-width:calc(100vw - 20px);pointer-events:auto;display:none}
+  .settings-panel{position:fixed;bottom:240px;right:10px;z-index:6;background:var(--panel);border:3px solid var(--ink);border-radius:22px;box-shadow:0 6px 0 var(--ink);padding:16px 18px;width:260px;max-width:calc(100vw - 20px);max-height:calc(100vh - 280px);overflow-y:auto;pointer-events:auto;display:none}
   .settings-panel.open{display:block}
   .settings-panel h3{margin:0 0 4px;font-size:20px;letter-spacing:.5px}
   .settings-panel .section-label{font-size:11px;letter-spacing:2px;font-weight:800;text-transform:uppercase;opacity:.55;margin:14px 0 8px}
@@ -152,15 +155,16 @@
   .banner.show{opacity:1;transform:translateX(-50%) translateY(0)}
 
   @media (max-width:520px){
-    .hud{top:8px;left:8px;right:48px;gap:6px}
+    .hud{top:8px;left:8px;right:8px;gap:6px}
     .chip{font-size:12px;padding:5px 10px;gap:6px;box-shadow:0 3px 0 var(--ink)}
     .chip .dot{width:8px;height:8px}
     .chip.lives{padding:5px 8px;gap:3px}
     .heart{width:14px;height:14px}
-    .sidebar{right:6px;top:8px;gap:6px}
+    .lives-bar{bottom:88px}
+    .sidebar{right:6px;bottom:88px;gap:6px}
     .sidebar .iconbtn{width:32px;height:32px}
     .sidebar .iconbtn svg{width:16px;height:16px}
-    .question-top{top:76px;width:min(440px,94vw)}
+    .question-top{top:64px;width:min(440px,94vw)}
     .question-top .prompt{font-size:30px;padding:8px 16px;min-height:64px}
     .question-top .prompt .eq{font-size:24px;margin:0 4px}
     .question-top .label{font-size:11px;margin-bottom:4px}
@@ -168,7 +172,7 @@
     .answers{gap:8px}
     .answers button{font-size:22px;padding:10px 0;min-height:58px;border-radius:16px}
     .answers button .pv-digit{font-size:22px}
-    .settings-panel{top:48px;right:6px;width:240px}
+    .settings-panel{bottom:200px;right:6px;width:240px;max-height:calc(100vh - 240px)}
   }
 </style>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -182,21 +186,24 @@
     <div class="chip level"><span class="dot"></span>Nível <span id="lvl">1</span></div>
     <div class="chip streak"><span class="dot"></span>Combo <span id="streak">0</span></div>
     <div class="chip score" style="background:#2a6ec8;color:#fff"><span class="dot" style="background:#ffde3d"></span>Recorde: <span id="best">0</span></div>
+  </div>
+
+  <div class="lives-bar">
     <div class="chip lives" id="lives">
       <span class="heart"></span><span class="heart"></span><span class="heart"></span>
     </div>
   </div>
 
   <div class="sidebar" id="sidebar">
-    <button class="iconbtn" id="pauseBtn" title="Pausar" aria-label="Pausar">
-      <svg id="pauseIcon" viewBox="0 0 24 24"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>
-      <svg id="playIcon" viewBox="0 0 24 24" style="display:none"><polygon points="7,4 20,12 7,20" fill="currentColor" stroke="none"/></svg>
+    <button class="iconbtn" id="settingsBtn" title="Configurações" aria-label="Configurações">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
     </button>
     <button class="iconbtn" id="restartBtn" title="Reiniciar" aria-label="Reiniciar">
       <svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7"/><polyline points="3 4 3 9 8 9"/></svg>
     </button>
-    <button class="iconbtn" id="settingsBtn" title="Configurações" aria-label="Configurações">
-      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+    <button class="iconbtn" id="pauseBtn" title="Pausar" aria-label="Pausar">
+      <svg id="pauseIcon" viewBox="0 0 24 24"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>
+      <svg id="playIcon" viewBox="0 0 24 24" style="display:none"><polygon points="7,4 20,12 7,20" fill="currentColor" stroke="none"/></svg>
     </button>
   </div>
 
