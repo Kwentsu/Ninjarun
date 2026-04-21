@@ -965,6 +965,7 @@ function showProblemOnCard(p){
   currentProblem = p;
   state.correctAnswer = p.ans;
   state.answered = false;
+  state.boosting = false; // new gate, no boost yet
   // Prompt: each digit gets its PCA frame above it. The ?  on the right is
   // unknown (no frame yet — revealed after answering).
   promptEl.innerHTML = `
@@ -1160,6 +1161,10 @@ function chooseAnswer(val, btnEl, laneIndex){
   // Track that an answer has been chosen (resolution logic uses ninja position, so
   // this just marks "not-unattempted" for analytics — NOT locking the player in).
   state.answered = true;
+  // Dash toward the gate once the student has locked in the correct answer —
+  // cancels instantly if they switch to a wrong one. Speed returns to normal
+  // when the next gate is shown (see showProblemOnCard).
+  state.boosting = (val === state.correctAnswer);
 }
 
 /* ---------------- Game loop ---------------- */
@@ -1189,7 +1194,10 @@ function tick(){
 
   // Move world: we keep player at z=0 and slide everything toward +z (since camera looks down -z).
   // Easier: move gates/scenery/stars/stripes by +state.speed*dt*z direction.
-  const adv = active ? state.speed * dt : 0;
+  // Boost kicks in when the student has already locked the correct answer — we rush
+  // toward the gate so they don't wait. Cleared in showProblemOnCard for the next gate.
+  const boostMul = state.boosting && gates[0] && !gates[0].userData.resolved ? 3 : 1;
+  const adv = active ? state.speed * boostMul * dt : 0;
 
   // Scenery recycle
   scenery.forEach(obj=>{
