@@ -66,16 +66,27 @@
 
   .toprow{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 
-  /* Question card */
-  .question{
-    position:fixed;left:50%;bottom:24px;transform:translateX(-50%);
-    background:var(--panel);border:4px solid var(--ink);border-radius:28px;
-    padding:16px 22px 14px;box-shadow:0 6px 0 var(--ink);
-    width:min(640px,94vw);z-index:4;pointer-events:auto;
+  /* Question split: prompt pinned above the torii scene, answers floating at the bottom
+     with no container — the buttons read as part of the scene for a more immersive feel. */
+  .question-top{
+    position:fixed;left:50%;top:80px;transform:translateX(-50%);
+    z-index:4;pointer-events:none;
+    width:min(520px,92vw);text-align:center;
   }
-  .question .label{font-size:12px;letter-spacing:2px;font-weight:800;text-transform:uppercase;opacity:.5;text-align:center;margin-bottom:4px}
-  .question .prompt{display:flex;align-items:center;justify-content:center;gap:4px;margin:4px 0 12px;line-height:1}
-  .question .prompt .eq{font-size:32px;font-weight:800;opacity:.5;margin:0 6px;align-self:center}
+  .question-top .label{
+    font-size:12px;letter-spacing:2px;font-weight:800;text-transform:uppercase;
+    opacity:.75;margin-bottom:6px;
+    text-shadow:0 1px 6px rgba(255,250,240,.9),0 0 2px rgba(255,250,240,1);
+  }
+  .question-top .prompt{
+    display:inline-flex;align-items:center;justify-content:center;gap:4px;
+    margin:0;line-height:1;min-height:76px;
+    background:var(--panel);border:4px solid var(--ink);border-radius:24px;
+    box-shadow:0 5px 0 var(--ink);padding:10px 20px;
+    max-width:100%;box-sizing:border-box;
+  }
+  .question-top .prompt .eq{font-size:28px;font-weight:800;opacity:.5;margin:0 6px;align-self:center}
+
   /* PCA: each "number" in the prompt is a digit (abstract, left) beside a frame (concrete, right) */
   .pv-num{display:inline-flex;flex-direction:row;align-items:center;justify-content:center;gap:10px}
   .pv-box{display:flex;align-items:center;justify-content:center;flex-shrink:0}
@@ -83,20 +94,23 @@
   .pv-box--empty{min-width:48px;min-height:48px;border:2px dashed rgba(42,33,24,.25);border-radius:8px}
   .pv-digit{font-size:34px;font-weight:800;letter-spacing:1px;line-height:1;min-width:1.2em;text-align:center;flex-shrink:0}
 
-  /* Give the prompt and answer rows enough vertical room for the cardboards */
-  .question .prompt{min-height:92px}
-  .answers button{min-height:76px}
+  /* Display modes — toggled on body. */
+  body.mode-number   .pv-box:not(.pv-box--empty){display:none}
+  body.mode-cardboard .pv-digit{display:none}
+  body.mode-cardboard .pv-num--unknown .pv-digit{display:inline-block} /* keep the "?" visible */
+  body.mode-number    .pv-num--unknown .pv-box--empty{display:none}    /* hide empty box in number-only */
 
-  /* Display modes — toggled on #qcard. */
-  #qcard.mode-number   .pv-box:not(.pv-box--empty){display:none}
-  #qcard.mode-cardboard .pv-digit{display:none}
-  #qcard.mode-cardboard .pv-num--unknown .pv-digit{display:inline-block} /* keep the "?" visible */
-  #qcard.mode-number    .pv-num--unknown .pv-box--empty{display:none}    /* hide empty box in number-only */
+  /* Answers: no container — buttons float over the 3D scene, lined up under their torii. */
+  .question-bottom{
+    position:fixed;left:50%;bottom:18px;transform:translateX(-50%);
+    z-index:4;pointer-events:auto;
+    width:min(640px,94vw);
+  }
   .answers{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
   .answers button{
     font-family:inherit;font-weight:800;
-    padding:8px 8px;border-radius:18px;
-    background:#fff;border:3px solid var(--ink);color:var(--ink);
+    padding:8px 8px;border-radius:18px;min-height:64px;
+    background:var(--panel);border:3px solid var(--ink);color:var(--ink);
     box-shadow:0 4px 0 var(--ink);cursor:pointer;transition:transform .06s,background .2s;
     display:flex;flex-direction:row;align-items:center;justify-content:center;gap:8px;
   }
@@ -107,8 +121,6 @@
   .answers button.correct{background:#c7efc9;border-color:var(--good);color:var(--good)}
   .answers button.wrong{background:#ffd3d3;border-color:var(--bad);color:var(--bad)}
   .answers button:disabled{cursor:default}
-
-  .hint{font-size:13px;text-align:center;margin-top:10px;opacity:.55;font-weight:600;letter-spacing:.5px}
 
   /* Overlays */
   .overlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(42,33,24,.45);z-index:10;backdrop-filter:blur(3px)}
@@ -135,9 +147,20 @@
   .banner.show{opacity:1;transform:translateX(-50%) translateY(0)}
 
   @media (max-width:520px){
-    .question .prompt{font-size:36px}
-    .answers button{font-size:22px;padding:12px 0}
-    .chip{font-size:16px;padding:8px 14px}
+    .question-top{top:96px;width:min(440px,94vw)}
+    .question-top .prompt{font-size:30px;padding:8px 16px;min-height:64px}
+    .question-top .prompt .eq{font-size:24px;margin:0 4px}
+    .question-top .label{font-size:11px;margin-bottom:4px}
+    .question-bottom{bottom:14px;width:96vw}
+    .answers{gap:8px}
+    .answers button{font-size:22px;padding:10px 0;min-height:58px;border-radius:16px}
+    .answers button .pv-digit{font-size:22px}
+    .chip{font-size:14px;padding:6px 12px}
+    .chip .dot{width:10px;height:10px}
+    .heart{width:18px;height:18px}
+    .iconbtn{width:40px;height:40px}
+    .iconbtn svg{width:20px;height:20px}
+    .hud{top:10px;left:10px;right:10px;gap:8px}
   }
 </style>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -237,11 +260,13 @@
     </div>
   </div>
 
-  <div class="question" id="qcard">
+  <div class="question-top" id="qprompt">
     <div class="label">Derrote o goblin da resposta certa!</div>
     <div class="prompt" id="prompt">2 <span class="eq">+</span> 3 <span class="eq">=</span> ?</div>
+  </div>
+
+  <div class="question-bottom" id="qanswers">
     <div class="answers" id="answers"></div>
-    <div class="hint">Escolha a resposta correta para atacar o goblin certo ⚔️ Mantenha o combo!</div>
   </div>
 
   <div class="overlay" id="overlay" style="display:none">
@@ -1462,11 +1487,10 @@ rangeRow.addEventListener('click', (e)=>{
 
 /* ---------- Display mode (Número / Cardboard / Ambos) ---------- */
 const displayRow = document.getElementById('displayRow');
-const qcardEl = document.getElementById('qcard');
 function applyDisplayMode(mode){
   state.displayMode = mode;
-  qcardEl.classList.remove('mode-number','mode-cardboard','mode-both');
-  qcardEl.classList.add('mode-'+mode);
+  document.body.classList.remove('mode-number','mode-cardboard','mode-both');
+  document.body.classList.add('mode-'+mode);
 }
 applyDisplayMode('both');
 displayRow.addEventListener('click', (e)=>{
